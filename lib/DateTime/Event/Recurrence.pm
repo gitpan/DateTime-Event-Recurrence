@@ -101,8 +101,8 @@ use DateTime;
 use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
-use vars qw( $VERSION @ISA );
-$VERSION = '0.12';
+use vars qw( $VERSION );
+$VERSION = '0.13';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -168,8 +168,9 @@ sub _month {
 
 sub _week {
     # get the internal week number
+    # $_[1] is the "week start day"
     use integer;
-    return $_[0]->{local_rd_days} / 7;
+    return ( $_[0]->{local_rd_days} - $_[1] ) / 7;
 }
 
 %truncate = (
@@ -355,7 +356,7 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
 
     weeks   => sub { 
         my $tmp = $truncate{weeks}->( $_[0], $_[1] );
-        while ( $_[1]{offset} != ( _week( $tmp ) % $_[1]{interval} ) )
+        while ( $_[1]{offset} != ( _week( $tmp, $weekdays_1{ $_[1]{week_start_day} } ) % $_[1]{interval} ) )
         {
             $previous_unit{weeks}->( $tmp, $_[1] );
         }
@@ -821,7 +822,7 @@ sub _setup_parameters {
                 $offset = _month( $start ) - _month( $tmp );
             }
             elsif ( $base eq 'weeks' ) {
-                $offset = _week( $start ) - _week( $tmp );
+                $offset = _week( $start, $weekdays_1{ $week_start_day } ) - _week( $tmp, $weekdays_1{ $week_start_day } );
             }
             elsif ( $base eq 'days' ) {
                 $offset = $start->{local_rd_days} - $tmp->{local_rd_days};
