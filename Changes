@@ -1,4 +1,12 @@
+0.05   2003-05-23
+- memoizes durations; makes less calls to DT::Duration->new
+- 'weekly' can use 'week_start_day'
 
+0.04   2003-05-14
+- turn on warnings in tests and fix all warnings given.
+- require DateTime::Set 0.06
+
+0.03   2003-05-12
 - iterates using binary tree
 - parameter checking
 - fixed behaviour of negative numbers (rfc2445)
@@ -12,14 +20,14 @@
 - added year_type => 'weekly' to yearly (internal)
   default is year_type => 'monthly'.
 
-0.02
+0.02   2003-04-27
 - tests month-day overflow for positive day offsets, if 'month'
   argument is specified. Skips a datetime if it is invalid.
 - setup structure to allow other overflow tests.
 - returns empty set for 'impossible' recurrences.
 - many docs and code tweaks.  by Dave Rolsky
 
-0.01
+0.01   2003-04-21
 - CPAN upload
 - no longer inherits DateTime::Set
 

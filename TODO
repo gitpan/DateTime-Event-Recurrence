@@ -1,9 +1,9 @@
 TODO list for Perl module DateTime::Event::Recurrence
 
 * new frequencies (in order to add support to missing DT::E::ICal recurrences):
-  - yearly_week with other week-start-days (rfc2445 WKST style)
-  - yearly_week starting in first weekday of year (rfc2445 1FR style)
 
+  DONE - yearly_week with other week-start-days (rfc2445 WKST style)
+  DONE - yearly_week starting in first weekday of year (rfc2445 1FR style)
     week_start_day => 'mo'   -- yearly 
     week_start_day => '1mo'  -- yearly and monthly 
 

@@ -8,7 +8,7 @@ use ExtUtils::MakeMaker;
                    ABSTRACT     => 'DateTime base recurrences',
 
                    PREREQ_PM    => { 'DateTime' => 0,
-                                     'DateTime::Set' => '0.06',
+                                     'DateTime::Set' => '0.07',
                                    },
                  );
 

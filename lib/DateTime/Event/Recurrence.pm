@@ -9,33 +9,66 @@ use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
 @ISA     = qw( Exporter );
-$VERSION = '0.04';
-
-# debug!
-use Data::Dumper;
+$VERSION = '0.05';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
 
 # -------- BASE OPERATIONS
 
-use vars qw( %truncate %next_unit %previous_unit );
+use vars qw( 
+    %truncate %next_unit %previous_unit 
+    %weekdays %weekdays_1 
+    $dur_month $dur_neg_month 
+    %memoized_duration
+);
 
-#my $week_start_day = 1;  # 1 = monday
+BEGIN {
+    %weekdays =   qw( mo 1 tu 2 we 3 th 4 fr 5 sa 6 su 7 );
+    %weekdays_1 = qw( 1mo 1  1tu 2  1we 3  1th 4  1fr 5  1sa 6  1su 7 );
+    $dur_month =  new DateTime::Duration( months => 1 );
+    $dur_neg_month =  new DateTime::Duration( months => -1 );
+}
 
-my %weekdays = qw( mo 1 tu 2 we 3 th 4 fr 5 sa 6 su 7 );
+# memoization reduces 'duration' creation from >10000 to about 30 per run,
+# in DT::E::ICal
+#
+sub _new_duration {
+    # unit, value
+    my $dur = \$memoized_duration{$_[0]}{$_[1]};
+    unless ( $$dur ) {
+        $$dur = new DateTime::Duration( $_[0] => $_[1] );
+    }
+    return $$dur;
+}
 
-my %weekdays_1 = qw( 1mo 1  1tu 2  1we 3  1th 4  1fr 5  1sa 6  1su 7 );
+sub _add {
+    # datetime, unit, value
+    my $dur = \$memoized_duration{$_[1]}{$_[2]};
+    unless ( $$dur ) {
+        $$dur = new DateTime::Duration( $_[1] => $_[2] );
+    }
+    $_[0]->add_duration( $$dur );
+}
+
+# internal subs to get date parameters
 
 sub _week_year {
-    # get the year number, in 'week' mode
+    # get the internal year number, in 'week' mode
     # the datetime must be near the beginning of the year!
-    return $_[0]->clone->add( months => 1 )->year;
+    return $_[0]->clone->add_duration( $dur_month )->year;
 }
 
 sub _month {
-    # get the year+month number
+    # get the internal year+month number
     return 12 * $_[0]->year + $_[0]->month - 1 ;
+}
+
+
+sub _week {
+    # get the internal week number
+    use integer;
+    return $_[0]->{local_rd_days} / 7;
 }
 
 %truncate = (
@@ -51,9 +84,13 @@ sub _month {
     ),
 
     weeks   => sub { 
-        my $tmp = $_[0]->clone;
-        $tmp->truncate( to => 'day' )
-            ->subtract( days => $_[0]->day_of_week_0 );
+        my $base = $_[0]->clone->truncate( to => 'day' );
+        _add( $base, days => - $_[0]->day_of_week 
+                             + $weekdays_1{ $_[1]{week_start_day} } );
+        while(1) {
+            return $base if $base <= $_[0];
+            _add( $base, weeks => -1 );
+        }
     },
 
     months_weekly => sub {
@@ -61,22 +98,20 @@ sub _month {
         my $base = $_[0]->clone->truncate( to => 'month' );
         my $val;
         my $diff;
-        # print STDERR "start of ".$_[0]->datetime. " $_[1]{week_start_day}\n";
         while(1) {
             $tmp = $base->clone;
             $val = $weekdays_1{ $_[1]{week_start_day} };
             $diff = $val - $base->day_of_week;
             $diff += 7 if $diff < 0;
-            $tmp->add( days =>  $diff );
-            # print STDERR "got ".$tmp->datetime." val $val base-day:".$weekdays{ $_[1]{week_start_day} }." ".$base->day_of_week." diff ".$diff."\n";
+            _add( $tmp, days =>  $diff );
             return $tmp if $tmp <= $_[0];
-            $base->add( months => -1 );
+            _add( $base, months => -1 );
         }
     },
 
     years_weekly => sub {
         my $tmp;
-        my $base = $_[0]->clone->add( months => 1 )->truncate( to => 'year' );
+        my $base = $_[0]->clone->add_duration( $dur_month )->truncate( to => 'year' );
         my $val;
         my $diff;
         # print STDERR "start of ".$_[0]->datetime. " $_[1]{week_start_day}\n";
@@ -91,10 +126,9 @@ sub _month {
                 $diff = ( $weekdays{ $_[1]{week_start_day} } - $base->day_of_week ) % 7;
                 $diff -= 7 if $diff > 3;
             }
-            $tmp->add( days =>  $diff );
-            # print STDERR "got ".$tmp->datetime." val $val base-day:".$weekdays{ $_[1]{week_start_day} }." ".$base->day_of_week." diff ".$diff."\n";
+            _add( $tmp, days =>  $diff );
             return $tmp if $tmp <= $_[0];
-            $base->add( years => -1 );
+            _add( $base, years => -1 );
         }
     },
 );
@@ -102,7 +136,7 @@ sub _month {
 %next_unit = (
     (
         map { 
-              my $dur = new DateTime::Duration( $_ => 1 );
+              my $dur = _new_duration( $_ => 1 );
               $_ => sub { $_[0]->add_duration( $dur ) } 
             } qw( years months weeks days hours minutes seconds )
     ),
@@ -111,11 +145,9 @@ sub _month {
         my $month = _month( $truncate{months_weekly}( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
-            $base->add( days => 21 );
+            _add( $base, days => 21 );
             $_[0] = $truncate{months_weekly}( $base, $_[1] );
-            # print STDERR "next $month ".$_[0]->month."\n";
         } while $month >= _month( $_[0] );
-        # print STDERR "next month ".$_[0]->datetime."\n";
         return $_[0];
     },
 
@@ -123,7 +155,7 @@ sub _month {
         my $year = _week_year( $truncate{years_weekly}( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
-            $base->add( months => 11 );
+            _add( $base,  months => 11 );
             $_[0] = $truncate{years_weekly}( $base, $_[1] );
         } while $year >= _week_year( $_[0] );
         return $_[0];
@@ -133,7 +165,7 @@ sub _month {
 %previous_unit = (
     ( 
         map { 
-              my $dur = new DateTime::Duration( $_ => -1 );
+              my $dur = _new_duration( $_ => -1 );
               $_ => sub { $_[0]->add_duration( $dur ) } 
             } qw( years months weeks days hours minutes seconds )  
     ),
@@ -142,7 +174,7 @@ sub _month {
         my $month = _month( $truncate{months_weekly}( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
-            $base->add( days => -21 );
+            _add( $base, days => -21 );
             $_[0] = $truncate{months_weekly}( $base, $_[1] );
         } while $month <= _month( $_[0] );
         return $_[0];
@@ -152,16 +184,10 @@ sub _month {
         my $year = _week_year( $truncate{years_weekly}( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
-            $base->add( months => -11 );
+            _add( $base, months => -11 );
             $_[0] = $truncate{years_weekly}( $base, $_[1] );
         } while $year <= _week_year( $_[0] );
         return $_[0];
-
-        # my $year = $_[0]->week_year;
-        # do {
-        #     $_[0]->subtract( months => 11 );
-        # } while $year <= $_[0]->week_year;
-        # $_[0] = $truncate{years_weekly}( $_[0], $_[1] );
     },
 );
 
@@ -171,81 +197,67 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
 
 %truncate_interval = (
     # @_ = ( date, $args )
-    # $args->{interval}, $args->{offset}
 
     years   => sub { 
         my $tmp = $_[0]->clone;
-        $tmp->truncate( to => 'year' )
-            ->add( years => $_[1]{offset} - ( $_[0]->year % $_[1]{interval} ) );
-        $tmp->add( years => - $_[1]{interval} ) if $tmp > $_[0];
+        $tmp->truncate( to => 'year' );
+        _add( $tmp, years => $_[1]{offset} - ( $_[0]->year % $_[1]{interval} ) );
+        _add( $tmp, years => - $_[1]{interval} ) if $tmp > $_[0];
         return $tmp;
     },
 
     months  => sub { 
         my $tmp = $_[0]->clone;
-
         my $months = _month( $_[0] );
-
-        # print STDERR "datetime ".$tmp->datetime." months $months\n";
-
-        $tmp->truncate( to => 'month' )
-            ->add( months => $_[1]{offset} - ( $months % $_[1]{interval} ) );
-
-        # print STDERR "trunc 1  ".$tmp->datetime."\n";
-
-        $tmp->add( months => - $_[1]{interval} ) if $tmp > $_[0];
-
-        # print STDERR "trunc 2  ".$tmp->datetime."\n";
-
+        $tmp->truncate( to => 'month' );
+        _add( $tmp, months => $_[1]{offset} - ( $months % $_[1]{interval} ) );
+        _add( $tmp, months => - $_[1]{interval} ) if $tmp > $_[0];
         return $tmp;
     },
 
     days  => sub { 
         my $tmp = $_[0]->clone;
         #  $_[0]->{local_rd_days}  is not good OO ...
-        $tmp->truncate( to => 'day' )
-            ->add( days => $_[1]{offset} - ( $_[0]->{local_rd_days} % $_[1]{interval} ) );
-        $tmp->add( days => - $_[1]{interval} ) if $tmp > $_[0];
+        $tmp->truncate( to => 'day' );
+        _add( $tmp, days => $_[1]{offset} - ( $_[0]->{local_rd_days} % $_[1]{interval} ) );
+        _add( $tmp, days => - $_[1]{interval} ) if $tmp > $_[0];
         return $tmp;
     },
 
     hours  => sub {
         my $tmp = $_[0]->clone;
         my $hours = $tmp->{local_rd_days} * 24 + $tmp->hour;
-        $tmp->truncate( to => 'hour' )
-            ->add( hours => $_[1]{offset} - ( $hours % $_[1]{interval} ) );
-        $tmp->add( hours => - $_[1]{interval} ) if $tmp > $_[0];
+        $tmp->truncate( to => 'hour' );
+        _add( $tmp, hours => $_[1]{offset} - ( $hours % $_[1]{interval} ) );
+        _add( $tmp, hours => - $_[1]{interval} ) if $tmp > $_[0];
         return $tmp;
     },
 
     minutes  => sub {
         my $tmp = $_[0]->clone;
         my $minutes = 60 * ( $tmp->{local_rd_days} * 24 + $tmp->hour ) + $tmp->minute;
-        $tmp->truncate( to => 'minute' )
-            ->add( minutes => $_[1]{offset} - ( $minutes % $_[1]{interval} ) );
-        $tmp->add( minutes => - $_[1]{interval} ) if $tmp > $_[0];
+        $tmp->truncate( to => 'minute' );
+        _add( $tmp, minutes => $_[1]{offset} - ( $minutes % $_[1]{interval} ) );
+        _add( $tmp, minutes => - $_[1]{interval} ) if $tmp > $_[0];
         return $tmp;
     },
 
     seconds  => sub {
         my $tmp = $_[0]->clone;
         my $seconds = 86400 * $tmp->{local_rd_days} + $tmp->{local_rd_secs};
-
         # a 11-digit number (floats have 15-digits in linux/win)
-        # print STDERR $tmp->datetime." is ";
-        # print STDERR "seconds ".$tmp->{local_rd_days}.",".$tmp->{local_rd_secs}." = $seconds\n"; 
-
-        $tmp->truncate( to => 'second' )
-            ->add( seconds => $_[1]{offset} - ( $seconds % $_[1]{interval} ) );
-        $tmp->add( seconds => - $_[1]{interval} ) if $tmp > $_[0];
+        $tmp->truncate( to => 'second' );
+        _add( $tmp, seconds => $_[1]{offset} - ( $seconds % $_[1]{interval} ) );
+        _add( $tmp, seconds => - $_[1]{interval} ) if $tmp > $_[0];
         return $tmp;
     },
 
     weeks   => sub { 
-        my $tmp = $_[0]->clone;
-        $tmp->truncate( to => 'day' )
-            ->add( days => $_[1]{offset} - ( $_[0]->{local_rd_days} % ( 7 * $_[1]{interval} ) ) );
-        $tmp->add( weeks => - $_[1]{interval} ) if $tmp > $_[0];
+        my $tmp = $truncate{weeks}( $_[0], $_[1] );
+        while ( $_[1]{offset} != ( _week( $tmp ) % $_[1]{interval} ) )
+        {
+            $previous_unit{weeks}( $tmp, $_[1] );
+        }
         return $tmp;
     },
 
@@ -259,13 +271,10 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
     },
 
     years_weekly => sub {
-        # print STDERR $_[0]->datetime."\n";
         my $tmp = $truncate{years_weekly}( $_[0], $_[1] );
-        # print STDERR "  trunc " . $tmp->datetime."\n";
         while ( $_[1]{offset} != ( _week_year( $tmp ) % $_[1]{interval} ) ) 
         {
             $previous_unit{years_weekly}( $tmp, $_[1] );
-            # print STDERR "    prev " . $tmp->datetime."\n";
         }
         return $tmp;
     },
@@ -288,11 +297,9 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
     },
 
     years_weekly => sub {
-        # print STDERR $_[0]->datetime."\n";
         for ( 1 .. $_[1]->{interval} ) 
         {
             $next_unit{years_weekly}( $_[0], $_[1] );
-            # print STDERR "  $_ next " . $_[0]->datetime."\n";
         }
     },
 );
@@ -314,11 +321,9 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
     },
 
     years_weekly => sub {
-        # print STDERR $_[0]->datetime."\n";
         for ( 1 .. $_[1]->{interval} ) 
         {
             $previous_unit{years_weekly}( $_[0], $_[1] );
-            # print STDERR "  $_ prev " . $_[0]->datetime."\n";
         }
     },
 );
@@ -326,11 +331,8 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
 # -------- CONSTRUCTORS
 
 BEGIN {
-    # setup constructors daily, monthly, ...
-        # years   yearly
-        # months monthly
+    # setup constructors daily, ...
     my @freq = qw(
-        weeks   weekly
         days    daily
         hours   hourly
         minutes minutely
@@ -360,12 +362,41 @@ BEGIN {
 } # BEGIN
 
 
+sub weekly {
+    my $class = shift;
+    my %args = @_;
+
+    my $week_start_day;
+    $args{week_start_day} = '1mo' unless $args{week_start_day};
+    $args{week_start_day} = '1' . $args{week_start_day} unless $args{week_start_day} =~ /1/;
+    $week_start_day = $args{week_start_day};
+    die "weekly: invalid week start day ($week_start_day)"
+        unless $weekdays_1{ $week_start_day };
+
+    my $_args =
+        _setup_parameters( base => 'weeks', %args );
+    return DateTime::Set->empty_set if $_args == -1;
+
+    $_args->{week_start_day} = $week_start_day;
+
+    return DateTime::Set->from_recurrence(
+        next => sub {
+            _get_next( $_[0], $_args );
+        },
+        previous => sub {
+            _get_previous( $_[0], $_args );
+        }
+    );
+}
+
+
+
 sub monthly {
     my $class = shift;
     my %args = @_;
 
     my $week_start_day;
-    $week_start_day = delete $args{week_start_day} || '1mo';
+    $week_start_day = $args{week_start_day} = $args{week_start_day} || '1mo';
     die "monthly: invalid week start day ($week_start_day)"
         unless $weekdays_1{ $week_start_day };
 
@@ -375,7 +406,6 @@ sub monthly {
 
     if ( exists $args{weeks} )
     {
-        # warn "** months_weekly $week_start_day interval ".$_args->{interval};
         $_args->{week_start_day} = $week_start_day;
 
         $_args->{unit} = 'months_weekly';
@@ -413,7 +443,7 @@ sub yearly {
     my %args = @_;
 
     my $week_start_day;
-    $week_start_day = delete $args{week_start_day} || 'mo';
+    $week_start_day = $args{week_start_day} = $args{week_start_day} || 'mo';
     die "yearly: invalid week start day ($week_start_day)"
         unless $weekdays{ $week_start_day } ||
                $weekdays_1{ $week_start_day };
@@ -425,7 +455,6 @@ sub yearly {
     if ( exists $args{weeks} ) 
     {
         $_args->{week_start_day} = $week_start_day;
-
         $_args->{unit} = 'years_weekly';
 
         if ( $_args->{interval} > 1 ) {
@@ -456,13 +485,9 @@ sub yearly {
 }
 
 
-# method( duration => $dur )
-# method( duration => [ [ $dur, $dur, $dur ] ] )
 # method( hours => 10 )
 # method( hours => 10, minutes => 30 )
 # method( hours => [ 6, 12, 18 ], minutes => [ 20, 40 ] )
-# method( duration => [ [ $dur, $dur ], 
-#                       [ $dur, $dur ] ] )
 
 sub _setup_parameters {
     my %args;
@@ -474,30 +499,16 @@ sub _setup_parameters {
     my $interval;
     my $start;
     my $offset;
+    my $week_start_day;
 
     # TODO: @duration instead of $duration
     my $duration;  
-
-my $comment = <<'__COMMENT';
-    # 'duration' argument is obsolete
-    if ( exists $args{ duration } ) 
-    {
-        $duration = delete $args{ duration };
-        if ( ref( $duration ) ne 'ARRAY' ) 
-        {
-            $duration = [ [ $duration ] ];
-        }
-        else {
-            die "argument 'duration' must be an array of arrays"
-                if ( ref( $duration->[0] ) ne 'ARRAY' ) 
-        }
-    }
-__COMMENT
 
     if ( @_ ) {
         %args = @_;
         $base = delete $args{base};
         $interval = delete $args{interval};
+        $week_start_day = delete $args{week_start_day};
         my $level = 0;
 
         my $last_unit = $base;
@@ -516,12 +527,6 @@ __COMMENT
             undef $start if $start == INFINITY || $start == NEG_INFINITY;
         }
 
-        if ( $start )
-        {
-            # TODO: get missing arguments from $start (rfc2445)
-
-        }
-
         for my $unit ( 
                  qw( months weeks days hours minutes seconds nanoseconds ) 
             ) {
@@ -530,6 +535,8 @@ __COMMENT
 
             $args{$unit} = [ $args{$unit} ] 
                 unless ref( $args{$unit} ) eq 'ARRAY';
+
+            # TODO: sort _after_ normalization
 
             @{$args{$unit}} = sort { $a <=> $b } @{$args{$unit}};
             # put positive values first
@@ -579,6 +586,28 @@ __COMMENT
                 {   # week day
                     @{$args{$unit}} = 
                         grep { $_ < 7 && $_ > -7 } @{$args{$unit}};
+
+                    # adjust week-day to week-start-day
+                    my $wkst = $weekdays_1{ $week_start_day };
+                    die "invalid week start day" unless $wkst;
+
+                    for ( @{$args{$unit}} ) {
+                        if ( $_ >= 0 ) {
+                            $_ = $_ - $wkst + 1;
+                            # warn "week-day: $_";
+                            $_ += 7 if $_ < 0;
+                        } 
+                    } 
+
+                    # redo argument sort
+
+                    @{$args{$unit}} = sort { $a <=> $b } @{$args{$unit}};
+                    # put positive values first
+                    my @tmp = grep { $_ >= 0 } @{$args{$unit}};
+                    push @tmp, $_ for grep { $_ < 0 } @{$args{$unit}};
+                    # print STDERR "$unit => @tmp\n";
+                    @{$args{$unit}} = @tmp;
+
                 }
                 else 
                 {   # year day
@@ -608,7 +637,7 @@ __COMMENT
             return -1 unless @{$args{$unit}};  # error - no args left
 
             push @{ $duration->[ $level ] }, 
-                new DateTime::Duration( $unit => $_ ) 
+                _new_duration( $unit => $_ ) 
                     for @{$args{$unit}};
 
             push @level_unit, $last_unit;
@@ -622,30 +651,23 @@ __COMMENT
         if ( $start && $interval )
         {
             # get offset 
-            my $tmp = $truncate_interval{ $base }( $start, { interval => $interval, offset => 0 } );
+            my $tmp = $truncate_interval{ $base }( $start, { interval => $interval, offset => 0, week_start_day => $week_start_day } );
             # print STDERR "start: ".$start->datetime."\n";
             # print STDERR "base: ".$tmp->datetime." $base\n";
 
-            # TODO: get scalar offset (truncated to base unit)
-            #
-            # - must change this to use the same difference algorithm as
+            # TODO: - must change this to use the same difference algorithm as
             #   the subs above.
-            #
 
             if ( $base eq 'years' ) {
                 $offset = $start->year - $tmp->year;
                 $offset = $start->year_week - $tmp->year_week 
                     if exists $args{weeks};
-                # print STDERR "offset $offset\n";
             }
             elsif ( $base eq 'months' ) {
-                $offset = 12 * $start->year + $start->month - 
-                          12 * $tmp->year   - $tmp->month;
+                $offset = _month( $start ) - _month( $tmp );
             }
             elsif ( $base eq 'weeks' ) {
-                my $monday = $start->clone;
-                $monday->subtract( days => $start->day_of_week - 1 );
-                $offset = $monday->{local_rd_days} - $tmp->{local_rd_days};
+                $offset = _week( $start ) - _week( $tmp );
             }
             elsif ( $base eq 'days' ) {
                 $offset = $start->{local_rd_days} - $tmp->{local_rd_days};
@@ -679,30 +701,6 @@ __COMMENT
     if ( $duration ) {
         my $i;
 
-my $comment = <<'__COMMENT';
-        # "compact" durations by adding together levels 
-        #     that only have 1 duration
-        # this cuts calls to 'add_duration' by about 10% in 
-        #     'make test'
-        # TODO: test: There might be problems when compacting negative 
-        #     durations over positive durations
-        $i = 1;
-        do {
-            if ( $i <= $#$duration &&
-                 $#{ $duration->[$i] } == 0  && 
-                 $i > 0 ) 
-            {
-                # print STDERR "Testing  $i $#{ $duration->[$i] }\n";
-                my $dur = $duration->[$i][0];
-                $_ = $_ + $dur for @{ $duration->[$i - 1] };
-                # print STDERR "delete dur $i\n";
-                splice ( @$duration, $i, 1);
-                $i--;  # repeat
-            }
-            $i++;
-        } until $i > $#$duration;
-__COMMENT
-
         for ( $i = $#$duration; $i >= 0; $i-- ) {
 
             if ( $i == $#$duration ) {
@@ -717,15 +715,15 @@ __COMMENT
     }
 
     my $unit = $base;
-    my $dur_unit = new DateTime::Duration( $unit => 1 );
-    my $neg_dur_unit = new DateTime::Duration( $unit => -1 );
+    my $dur_unit = _new_duration( $unit => 1 );
+    my $neg_dur_unit = _new_duration( $unit => -1 );
 
     my $dur_unit_interval;
     my $neg_dur_unit_interval;
     if ( $interval ) 
     {
-        $dur_unit_interval = new DateTime::Duration( $unit => $interval );
-        $neg_dur_unit_interval = new DateTime::Duration( $unit => -$interval );
+        $dur_unit_interval = _new_duration( $unit => $interval );
+        $neg_dur_unit_interval = _new_duration( $unit => -$interval );
 
         # warn "base ".$base;
 
@@ -779,13 +777,11 @@ sub _get_occurence_by_index {
     my $j;
     my $i;
     my $next = $base->clone;
-    # my @indexes;
     # print STDERR "_get_occurence_by_index ".$base->datetime." $occurence/".$args->{total_durations}." \n";
     for $j ( 0 .. $#{$args->{duration}} ) 
     {
         $i = int( $occurence / $args->{total_level}[$j] );
         $occurence -= $i * $args->{total_level}[$j];
-        # $indexes[$j] = $index;
 
         if ( $args->{duration}[$j][$i]->is_negative )
         {
@@ -802,7 +798,6 @@ sub _get_occurence_by_index {
             # print STDERR "total_level ".( $args->{total_level}[$j] )." previous $previous \n";
             return ( undef, $previous );
         }
-
     }
     # print STDERR "found: ".$next->datetime."\n";
     return ( $next, -1 );
@@ -815,8 +810,6 @@ sub _get_previous {
 
     if ( $args->{duration} ) 
     {
-        # print STDERR "self ".$self->datetime."\n";
-
         my $j;
         my $next;
         my ( $tmp, $start, $end );
@@ -855,8 +848,6 @@ sub _get_previous {
                             if ( $err >= 0 ) { $end = $err; next }
                             next INTERVAL;
                         }
-
-                        # next INTERVAL unless defined $next;
                         return $next if $next < $self;
                     }
                     next INTERVAL;
@@ -879,12 +870,8 @@ sub _get_next {
     my ( $self, $args ) = @_;
     my $base = $args->{truncate}( $self, $args );
 
-    # warn "_get_next parameters: @{[ %$args ]}";
-
     if ( $args->{duration} ) 
     {
-        # print STDERR "self ".$self->datetime."\n";
-
         my $j;
         my $next;
         my ( $tmp, $start, $end );
@@ -909,7 +896,6 @@ sub _get_next {
                 else {
                     $start = $tmp + 1;
                 }
-                # print STDERR "start/end $start/$end of ".( $args->{total_durations} - 1 )."\n";
 
                 if ( $end - $start < 3 ) 
                 {
@@ -1078,15 +1064,15 @@ the 'first week' of a period is calculated:
 
 'mo' - this is the default. The first week is
 one that starts in monday, and has I<the most days> in
-this period. Works only for C<yearly> recurrences.
+this period. 
 
 'tu', 'we', 'th', 'fr', 'sa', 'su' - The first week is
 one that starts in this week-day, and has I<the most days> in
-this period. Works only for C<yearly> recurrences.
+this period. Works for C<weekly> and C<yearly> recurrences.
 
 '1tu', '1we', '1th', '1fr', '1sa', '1su' - The first week is
 one that starts in this week-day, and has I<all days> in
-this period. Works for C<yearly> and C<monthly> recurrences.
+this period. Works for C<weekly>, C<monthly> and C<yearly> recurrences.
 
 =head1 AUTHOR
 
@@ -1095,7 +1081,7 @@ fglock@pucrs.br
 
 =head1 CREDITS
 
-The API is under development, with help from the people
+The API was developmed with help from the people
 in the datetime@perl.org list. 
 
 Special thanks to Dave Rolsky, 
