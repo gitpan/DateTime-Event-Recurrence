@@ -102,7 +102,7 @@ use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -732,7 +732,7 @@ sub _setup_parameters {
 
                     for ( 0 .. $#{$args{$unit}} ) {
                         $check_day_overflow[$level][$_] = 1 
-                            if ( $args{$unit}[$_] > 28 );
+                            if ( $args{$unit}[$_] > 27 );
                     }
 
                 }
