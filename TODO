@@ -33,6 +33,9 @@ OTHER
         days => [ -20, 20 ],
         minutes => [ 30 ] );
 
+* remove repeated indexes
+        days => [ 1 1 1 4 ],
+
 * add more argument overflow tests:
   day in year, 
   week in year, 

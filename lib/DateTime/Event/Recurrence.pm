@@ -104,7 +104,7 @@ use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION );
-$VERSION = '0.15_01';
+$VERSION = '0.15_02';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -157,7 +157,7 @@ BEGIN {
     
     %limits = qw(
         nanoseconds 1000000000
-        seconds     60
+        seconds     61
         minutes     60
         hours       24
         months      12
@@ -500,31 +500,15 @@ BEGIN {
         no strict 'refs';
         *{__PACKAGE__ . "::$namely"} =
             sub { 
-                  use strict 'refs';
-                  my $class = shift;
-                  my $args = _setup_parameters( base => $name, @_ );
-                  return DateTime::Set::ICal->empty_set if $args == -1;
-                  my $set = DateTime::Set::ICal->from_recurrence(
-                          next => sub { 
-                              _get_next( $_[0], $args ); 
-                          },
-                          previous => sub { 
-                              _get_previous( $_[0], $args ); 
-                          },
-                      );
-                  $set->set_ical( include => [ $args->{ical_string} ] ); 
-                  # warn "Creating set: ". $args->{ical_string} ." \n";
-                  return $set;
+                    use strict 'refs';
+                    my $class = shift;
+                    return _create_recurrence( base => $name, @_ );
                 };
     }
 } # BEGIN
 
 
-# method( hours => 10 )
-# method( hours => 10, minutes => 30 )
-# method( hours => [ 6, 12, 18 ], minutes => [ 20, 40 ] )
-
-sub _setup_parameters {
+sub _create_recurrence {
     my %args = @_;
 
     # print "ARGS: "; 
@@ -707,7 +691,7 @@ sub _setup_parameters {
                              } @{$args{$unit}};
             }
 
-            return -1 
+            return DateTime::Set::ICal->empty_set 
                 unless @{$args{$unit}};  # there are no args left
 
             push @duration, $args{$unit};
@@ -725,11 +709,41 @@ sub _setup_parameters {
 
     die "invalid argument '@{[ keys %args ]}'"
         if keys %args;
+   
+    # --- SPLIT NEGATIVE/POSITIVE DURATIONS
+
+    my @args;
+    push @args, \@duration;
     
-    my $total_durations = 1;
-    my @total_level;
-    for ( my $i = $#duration; $i > 0; $i-- ) 
+    for ( my $i = 0; $i < @args; $i++ )
     {
+        my $dur1 = $args[$i];
+        for ( 1 .. $#{$dur1} )
+        {
+            my @negatives = grep { $_ <  0 } @{$dur1->[$_]};
+            my @positives = grep { $_ >= 0 } @{$dur1->[$_]};
+            if ( @positives && @negatives )
+            {
+                # split
+                # TODO: check if it really needs splitting
+                my $dur2 = [ @{$args[$i]} ];
+                $dur2->[$_] = \@negatives;
+                $dur1->[$_] = \@positives;
+                push @args, $dur2;
+            }
+        }
+    }
+
+    # --- CREATE THE SET
+    
+    my $set;
+    for ( @args )
+    {
+        my @duration = @$_;
+        my $total_durations = 1;
+        my @total_level;
+        for ( my $i = $#duration; $i > 0; $i-- ) 
+        {
             if ( $i == $#duration ) 
             {
                 $total_level[$i] = 1;
@@ -740,11 +754,9 @@ sub _setup_parameters {
                                    ( 1 + $#{ $duration[$i + 1] } );
             }
             $total_durations *= 1 + $#{ $duration[$i] };
-    }
+        }
 
-    # --- DONE
-    
-    return {
+        my $args =  {
             truncate_interval =>      $truncate_interval{ $base_unit },
             previous_unit_interval => $previous_unit_interval{ $base_unit },
             next_unit_interval =>     $next_unit_interval{ $base_unit },
@@ -756,11 +768,26 @@ sub _setup_parameters {
             
             interval =>        $interval,
             offset =>          $offset,
-            ical_string =>     $ical_string,
             week_start_day =>  $week_start_day,
-    };
-
-} # _setup_parameters()
+        };
+        
+        my $tmp = DateTime::Set::ICal->from_recurrence(
+                          next => sub { 
+                              _get_next( $_[0], $args ); 
+                          },
+                          previous => sub { 
+                              _get_previous( $_[0], $args ); 
+                          },
+        );
+        
+        $set = defined $set ? $set->union( $tmp ) : $tmp;
+    }
+    $set->set_ical( include => [ $ical_string ] ); 
+    # warn "Creating set: ". $ical_string ." \n";
+    
+    return $set;
+    
+} # _create_recurrence
 
 
 sub _get_occurrence_by_index {
@@ -775,18 +802,13 @@ sub _get_occurrence_by_index {
         my $next = $base->clone;
         my $previous = $base;
         # decode the occurrence-number into a parameter-index-list
-        my $tmp = $occurrence;
         my @values = ( -1 );
         for my $j ( 1 .. $#{$args->{duration}} ) 
         {
-            my $i = int( $tmp / $args->{total_level}[$j] );
-            $tmp -= $i * $args->{total_level}[$j];
+            my $i = int( $occurrence / $args->{total_level}[$j] );
+            $occurrence -= $i * $args->{total_level}[$j];
             push @values, $i;
-        }
-        # warn "occurrence $occurrence indexes [ @values ]\n";
-        for my $j ( 1 .. $#{$args->{duration}} ) 
-        {
-            my $i = $values[$j];
+        
             if ( $args->{duration}[$j][$i] < 0 )
             {
                 # warn "negative unit\n";
@@ -794,6 +816,7 @@ sub _get_occurrence_by_index {
                     $next, $args->{week_start_day} );
             }
             _add( $next, $args->{level_unit}[$j], $args->{duration}[$j][$i] );
+            
             # overflow check
             if ( $as_number{ $args->{level_unit}[$j - 1] }->( 
                     $next, $args->{week_start_day} ) !=

@@ -1,3 +1,8 @@
+0.15_02   2005-01-27
+- allows interleaved neg/positive values; allows repeated indexes.
+  Supports weird argument lists such as [ -200, -10, -10, 200, 20 ].
+  Speed is slower by another 10%.
+
 0.15_01   2005-01-26
 - full overflow checking. 
   The previous version only checked for some kinds of month overflows.
