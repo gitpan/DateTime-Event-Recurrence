@@ -1,8 +1,12 @@
+0.10    2004-03-17
+0.0901  2004-03-09
+- the recurrence functions accept infinite DateTimes, as required
+  by DT::Set 0.1402
 
+0.09  2003-10-10
 - recurrences can be formatted using 
   DateTime::Format::ICal->format_recurrence().
-  - not much tested.
-  - nanoseconds are not supported by ICal format.
+  Some recurrences (ex: nanoseconds) are not supported by ICal format.
 - added nanosecond tests
 
 0.08  2003-10-31

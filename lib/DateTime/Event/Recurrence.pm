@@ -102,7 +102,7 @@ use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
-$VERSION = 0.09;
+$VERSION = '0.10';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -449,8 +449,8 @@ BEGIN {
                   my $_args = 
                      _setup_parameters( base => $name, @_ );
 
-                  return DateTime::Set->empty_set if $_args == -1;
-                  my $set = DateTime::Set->from_recurrence(
+                  return DateTime::Set::ICal->empty_set if $_args == -1;
+                  my $set = DateTime::Set::ICal->from_recurrence(
                           next => sub { 
                               _get_next( $_[0], $_args ); 
                           },
@@ -458,7 +458,6 @@ BEGIN {
                               _get_previous( $_[0], $_args ); 
                           },
                       );
-                  bless $set, 'DateTime::Set::ICal';
 
                   my $ical_string = uc( "RRULE:FREQ=$namely" );
                   $ical_string .= $_args->{ical_string} if defined $_args->{ical_string};
@@ -959,6 +958,9 @@ sub _get_occurence_by_index {
 
 sub _get_previous {
     my ( $self, $args ) = @_;
+
+    return $self if $self->is_infinite;
+
     my $base = $args->{truncate}->( $self, $args );
 
     if ( $args->{duration} ) 
@@ -1020,6 +1022,9 @@ sub _get_previous {
 
 sub _get_next {
     my ( $self, $args ) = @_;
+
+    return $self if $self->is_infinite;
+
     my $base = $args->{truncate}->( $self, $args );
 
     if ( $args->{duration} ) 
@@ -1126,7 +1131,8 @@ I<beginning> of each recurrence.
 For example, by default the C<monthly()> method returns a set where
 each member is the first day of the month.
 
-Without parameters, the C<weekly()> returns I<mondays>.
+Without parameters, the C<weekly()> method returns a set containing
+I<Mondays>.
 
 However, you can pass in parameters to alter where these datetimes
 fall.  The parameters are the same as those given to the
@@ -1152,12 +1158,12 @@ month>:
       DateTime::Event::Recurrence->monthly( days => -1 );
 
 When days are added to a month the result I<is> checked for month
-overflow (such as nonexisting day 31 or 30), and invalid datetimes are
-skipped.
+overflow (such as a nonexisting day 31 or 30), and invalid datetimes
+are skipped.
 
-The behaviour when other duration overflows occur, such as when a
-duration is bigger than the period, is undefined and is version
-dependent.
+The behaviour when other duration overflows occur is undefined, so
+don't do that.  An example of this would be creating a set via the
+C<daily()> method and specifying C<< hours => 25 >>.
 
 Invalid parameter values are usually skipped.
 
@@ -1166,11 +1172,10 @@ return unexpected results.  In particular, it would be possible to
 specify a recurrence that creates nonexistent datetimes.  Because
 C<DateTime.pm> throws an exception if asked to create a non-existent
 datetime, please be careful when specifying a duration with "hours".
-This behaviour might change in future versions.
 
-As an alternative, you might want to use floating times, or use
-negative hours since DST changes almost always occur at the beginning
-of the day.
+The best way to ensure that this is not a problem is to use the "UTC"
+or "floating" time zones when providing C<DateTime> objects to the
+set's C<next()> or C<previous()> methods.
 
 The value C<60> for seconds (the leap second) is ignored.  If you
 I<really> want the leap second, then specify the second as C<-1>.
@@ -1178,11 +1183,13 @@ I<really> want the leap second, then specify the second as C<-1>.
 You can also provide multiple sets of duration arguments, such as
 this:
 
-    my $set = DateTime::Event::Recurrence->daily(
-        hours =>   [ 10, 14,  -1 ],
-        minutes => [ 15, 30, -15 ], );
+    my $set = DateTime::Event::Recurrence->daily
+                  ( hours =>   [ 10, 14,  -1 ],
+                    minutes => [ 15, 30, -15 ],
+                  );
 
-specifies a recurrence occuring every day at these 9 different times:
+This specifies a recurrence occuring every day at these 9 different
+times:
 
   10:15,  10:30,  10:45,   # +10h         ( +15min / +30min / last 15min (-15) )
   14:15,  14:30,  14:45,   # +14h         ( +15min / +30min / last 15min (-15) )
@@ -1197,26 +1204,32 @@ To create a set of recurrences occuring every thirty seconds, we could do this:
 
 =head2 "interval" and "start" parameters
 
-The C<interval> parameter represents how often the recurrence rule
-repeats. The optional C<start> parameter specify where to start counting:
+The "interval" parameter represents how often the recurrence rule
+repeats. The optional "start" parameter specifies where to start
+counting:
 
     my $dt = DateTime->new( year => 2003, month => 6, day => 15 );
 
-    my $set = DateTime::Event::Recurrence->daily(
-        interval => 11,
-        hours =>    10,
-        minutes =>  30,
-        start =>    $dt );
+    my $set = DateTime::Event::Recurrence->daily
+                  ( interval => 11,
+                    hours    => 10,
+                    minutes  => 30,
+                    start    => $dt,
+                  );
 
-specifies a recurrence that happens at 10:30 on the day specified by
-C<start => $dt>, and then at every 11 days I<before and after> C<$dt>.  So we
-get a set like this:
+This specifies a recurrence that happens at 10:30 on the day specified
+by C<< start => $dt >>, and then every 11 days I<before and after>
+C<$dt>.  So we get a set like this:
 
     ...
     2003-06-04T10:30:00,
     2003-06-15T10:30:00,
     2003-06-26T10:30:00,
     ...
+
+In this case, the method is used to specify the unit, so C<daily()>
+means that our unit is a day, and C<< interval => 11 >> specifies the
+quantity of our unit.
 
 =head2 "week start day" parameter
 
@@ -1234,9 +1247,8 @@ in this week-day, and has I<the most days> in this period.  Works for
 C<weekly> and C<yearly> recurrences.
 
 "1tu", "1we", "1th", "1fr", "1sa", "1su" - The first week is one that
-starts in this week-day, and has I<all days> in this period.  Works for
-C<weekly>, C<monthly> and C<yearly> recurrences.
-
+starts in this week-day, and has I<all days> in this period.  This
+works for C<weekly()>, C<monthly()> and C<yearly()> recurrences.
 
 =head1 AUTHOR
 
