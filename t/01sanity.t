@@ -1,3 +1,5 @@
+#!/usr/bin/perl -w
+
 use strict;
 
 use Test::More tests => 2;
@@ -28,8 +30,8 @@ use DateTime::Event::Recurrence;
     # WEEKLY
     $dt1->subtract( days => 15 );
     my $weekly = weekly DateTime::Event::Recurrence;
-    my @dt = $weekly->as_list( start => $dt1, end => $dt2 );
-    my $r = join(' ', map { $_->datetime } @dt);
+    @dt = $weekly->as_list( start => $dt1, end => $dt2 );
+    $r = join(' ', map { $_->datetime } @dt);
     is( $r, 
         '2003-04-14T00:00:00 2003-04-21T00:00:00 2003-04-28T00:00:00',
         "weekly" );
