@@ -1,0 +1,16 @@
+TODO list for Perl module DateTime::Event::Recurrence
+
+* count hours backwards, in order to avoid DST changes
+  which usually occur in the first hours of the day
+
+* new units:
+
+  weekly_year  => first day of first week of year, such that
+                  we can get week #34 by adding 33 weeks!
+
+* datetime matrix implementation
+
+  - sort each unit ?
+
+  - iterate using binary search
+

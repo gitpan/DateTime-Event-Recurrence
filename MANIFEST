@@ -1,0 +1,16 @@
+CREDITS
+Changes
+LICENSE
+MANIFEST			This list of files
+MANIFEST.SKIP
+Makefile.PL
+README
+TODO
+lib/DateTime/Event/Recurrence.pm
+t/00load.t
+t/01sanity.t
+t/02next.t
+t/03offset.t
+t/04neg_offset.t
+t/05set.t
+

@@ -1,0 +1,50 @@
+0.00_11
+
+- added 'set' tests
+- docs correction. Dave Rolsky
+
+0.00_10
+
+- ISA DateTime::Set
+- removed as_set
+- moved all accessors to DateTime::Set
+- requires DT::Set 0.02
+
+0.00_09
+
+- new syntax
+    $r = DT::E::R->monthly (
+                       days => [ 4, 15, 18 ],
+                       hours => [ 10, 20 ] );
+
+0.00_08
+
+- both previous and next work; all tests pass; more docs
+
+0.00_07
+
+- works with 2-D durations; looks up table in linear time (in worst case).
+  That is, a 4x4 table gives 4^4 combinations but is looked up in 4*4 time.
+  But it could be done in 4log4 time...
+
+0.00_06
+
+- works with multiple durations like
+    $r = DT::E::R->monthly (
+                       duration => \@durations );
+- durations _must_ be pre-sorted.
+
+0.00_05
+
+- refactored constructor subs
+- added a very rough multiple-duration structure 
+  (doesn't work with mixed negative/positive durations)
+
+0.00_03
+
+- "duration" argument in constructors
+
+0.00_02
+
+- previous, closest, weekly
+
