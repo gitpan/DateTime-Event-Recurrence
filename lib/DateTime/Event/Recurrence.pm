@@ -92,7 +92,7 @@ use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
 @ISA     = qw( Exporter );
-$VERSION = '0.06';
+$VERSION = 0.07;
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -225,21 +225,21 @@ sub _week {
     ),
 
     months_weekly => sub {
-        my $month = _month( $truncate{months_weekly}( $_[0], $_[1] ) );
+        my $month = _month( $truncate{months_weekly}->( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
             _add( $base, days => 21 );
-            $_[0] = $truncate{months_weekly}( $base, $_[1] );
+            $_[0] = $truncate{months_weekly}->( $base, $_[1] );
         } while $month >= _month( $_[0] );
         return $_[0];
     },
 
     years_weekly => sub {
-        my $year = _week_year( $truncate{years_weekly}( $_[0], $_[1] ) );
+        my $year = _week_year( $truncate{years_weekly}->( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
             _add( $base,  months => 11 );
-            $_[0] = $truncate{years_weekly}( $base, $_[1] );
+            $_[0] = $truncate{years_weekly}->( $base, $_[1] );
         } while $year >= _week_year( $_[0] );
         return $_[0];
     },
@@ -254,21 +254,21 @@ sub _week {
     ),
 
     months_weekly => sub {
-        my $month = _month( $truncate{months_weekly}( $_[0], $_[1] ) );
+        my $month = _month( $truncate{months_weekly}->( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
             _add( $base, days => -21 );
-            $_[0] = $truncate{months_weekly}( $base, $_[1] );
+            $_[0] = $truncate{months_weekly}->( $base, $_[1] );
         } while $month <= _month( $_[0] );
         return $_[0];
     },
 
     years_weekly => sub {
-        my $year = _week_year( $truncate{years_weekly}( $_[0], $_[1] ) );
+        my $year = _week_year( $truncate{years_weekly}->( $_[0], $_[1] ) );
         my $base = $_[0]->clone;
         do {
             _add( $base, months => -11 );
-            $_[0] = $truncate{years_weekly}( $base, $_[1] );
+            $_[0] = $truncate{years_weekly}->( $base, $_[1] );
         } while $year <= _week_year( $_[0] );
         return $_[0];
     },
@@ -336,28 +336,28 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
     },
 
     weeks   => sub { 
-        my $tmp = $truncate{weeks}( $_[0], $_[1] );
+        my $tmp = $truncate{weeks}->( $_[0], $_[1] );
         while ( $_[1]{offset} != ( _week( $tmp ) % $_[1]{interval} ) )
         {
-            $previous_unit{weeks}( $tmp, $_[1] );
+            $previous_unit{weeks}->( $tmp, $_[1] );
         }
         return $tmp;
     },
 
     months_weekly => sub {
-        my $tmp = $truncate{years_weekly}( $_[0], $_[1] );
+        my $tmp = $truncate{years_weekly}->( $_[0], $_[1] );
         while ( $_[1]{offset} != ( _month( $tmp ) % $_[1]{interval} ) )
         {
-            $previous_unit{months_weekly}( $tmp, $_[1] );
+            $previous_unit{months_weekly}->( $tmp, $_[1] );
         }
         return $tmp;
     },
 
     years_weekly => sub {
-        my $tmp = $truncate{years_weekly}( $_[0], $_[1] );
+        my $tmp = $truncate{years_weekly}->( $_[0], $_[1] );
         while ( $_[1]{offset} != ( _week_year( $tmp ) % $_[1]{interval} ) ) 
         {
-            $previous_unit{years_weekly}( $tmp, $_[1] );
+            $previous_unit{years_weekly}->( $tmp, $_[1] );
         }
         return $tmp;
     },
@@ -375,14 +375,14 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
     months_weekly => sub {
         for ( 1 .. $_[1]->{interval} )
         {
-            $next_unit{months_weekly}( $_[0], $_[1] );
+            $next_unit{months_weekly}->( $_[0], $_[1] );
         }
     },
 
     years_weekly => sub {
         for ( 1 .. $_[1]->{interval} ) 
         {
-            $next_unit{years_weekly}( $_[0], $_[1] );
+            $next_unit{years_weekly}->( $_[0], $_[1] );
         }
     },
 );
@@ -399,14 +399,14 @@ use vars qw( %truncate_interval %next_unit_interval %previous_unit_interval );
     months_weekly => sub {
         for ( 1 .. $_[1]->{interval} )
         {
-            $previous_unit{months_weekly}( $_[0], $_[1] );
+            $previous_unit{months_weekly}->( $_[0], $_[1] );
         }
     },
 
     years_weekly => sub {
         for ( 1 .. $_[1]->{interval} ) 
         {
-            $previous_unit{years_weekly}( $_[0], $_[1] );
+            $previous_unit{years_weekly}->( $_[0], $_[1] );
         }
     },
 );
@@ -624,8 +624,18 @@ sub _setup_parameters {
 
             # TODO: sort _after_ normalization
 
+            if ( $unit eq 'days' )
+            {
+                # map rfc2445 weekdays to numbers
+                @{$args{$unit}} = map {
+                        $_ =~ /[a-z]/ ?
+                        $_ = $weekdays{$_} :
+                        $_
+                    } @{$args{$unit}};
+            }
             @{$args{$unit}} = sort { $a <=> $b } @{$args{$unit}};
             # put positive values first
+            # warn "Arguments: $unit = @{$args{$unit}}";
             my @tmp = grep { $_ >= 0 } @{$args{$unit}};
             push @tmp, $_ for grep { $_ < 0 } @{$args{$unit}};
             # print STDERR "$unit => @tmp\n";
@@ -737,7 +747,7 @@ sub _setup_parameters {
         if ( $start && $interval )
         {
             # get offset 
-            my $tmp = $truncate_interval{ $base }( $start, { interval => $interval, offset => 0, week_start_day => $week_start_day } );
+            my $tmp = $truncate_interval{ $base }->( $start, { interval => $interval, offset => 0, week_start_day => $week_start_day } );
             # print STDERR "start: ".$start->datetime."\n";
             # print STDERR "base: ".$tmp->datetime." $base\n";
 
@@ -871,7 +881,7 @@ sub _get_occurence_by_index {
 
         if ( $args->{duration}[$j][$i]->is_negative )
         {
-            $next_unit{ $args->{level_unit}[$j] }( $next, $args );
+            $next_unit{ $args->{level_unit}[$j] }->( $next, $args );
         }
         $next->add_duration( $args->{duration}[$j][$i] );
 
@@ -892,7 +902,7 @@ sub _get_occurence_by_index {
 
 sub _get_previous {
     my ( $self, $args ) = @_;
-    my $base = $args->{truncate}( $self, $args );
+    my $base = $args->{truncate}->( $self, $args );
 
     if ( $args->{duration} ) 
     {
@@ -903,7 +913,7 @@ sub _get_previous {
         my $err;
 
         INTERVAL: while(1) {
-            $args->{previous_unit_interval}( $base, $args ) if $init;
+            $args->{previous_unit_interval}->( $base, $args ) if $init;
             $init = 1;
 
             # binary search
@@ -945,7 +955,7 @@ sub _get_previous {
 
     while ( $base >= $self ) 
     {
-        $args->{previous_unit_interval}( $base, $args );
+        $args->{previous_unit_interval}->( $base, $args );
     }
     return $base;
 }
@@ -954,7 +964,7 @@ sub _get_previous {
 
 sub _get_next {
     my ( $self, $args ) = @_;
-    my $base = $args->{truncate}( $self, $args );
+    my $base = $args->{truncate}->( $self, $args );
 
     if ( $args->{duration} ) 
     {
@@ -964,7 +974,7 @@ sub _get_next {
         my $init = 0;
 
         INTERVAL: while(1) {
-            $args->{next_unit_interval}( $base, $args ) if $init;
+            $args->{next_unit_interval}->( $base, $args ) if $init;
             $init = 1;
 
             # binary search
@@ -998,7 +1008,7 @@ sub _get_next {
 
     while ( $base <= $self )
     {
-        $args->{next_unit_interval}( $base, $args );
+        $args->{next_unit_interval}->( $base, $args );
     }
     return $base;
 }

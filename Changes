@@ -1,3 +1,7 @@
+
+0.07   2003-09-02
+- tests pass under Perl 5.00503
+
 0.06
 - defines DateTime::Set::ICal class, in order to provide 
   ICal strings to represent recurrences (set/get_ical)
