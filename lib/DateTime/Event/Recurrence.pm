@@ -102,7 +102,7 @@ use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -838,6 +838,9 @@ sub _setup_parameters {
                 $offset = 86400 * $start->{local_rd_days} + $start->{local_rd_secs} -
                           86400 * $tmp->{local_rd_days}   - $tmp->{local_rd_secs};
             }
+
+            $offset = $offset % $interval if defined $interval;
+
         }
         else 
         {
