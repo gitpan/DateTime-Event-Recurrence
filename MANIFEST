@@ -18,7 +18,8 @@ t/07set-2.t
 t/08stress.t
 t/09yearly_weekly.t
 t/10weekly_more.t
-# t/10interval.t
-# t/11interval_start.t
+# t/11mixed_offset.t
+t/12monthly_weekly.t
+t/13yearly_by_day.t
 
 META.yml                                Module meta-data (added by MakeMaker)

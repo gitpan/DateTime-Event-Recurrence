@@ -1,3 +1,15 @@
+0.15_01   2005-01-26
+- full overflow checking. 
+  The previous version only checked for some kinds of month overflows.
+  The tests run slower by about 12%.
+- checks for invalid parameters, such as "monthly( months=>xx )" or
+  "yearly( months=>xx, weeks=>xx )"
+- added a dispatch table for "offset" calculations
+- fixed and added tests for monthly( week => ...)
+- modified "sort positive values first". Patch by Yitzchak Scott-Thoennes.
+- refactored _setup_parameters()
+- Updated pod and tests.
+
 0.15    2005-01-19
 - array-ref parameter lists are not mutated. Patch by Daisuke Maki.
 - rewritten "sort positive values first" in _setup_parameters()

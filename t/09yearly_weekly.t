@@ -43,14 +43,11 @@ use DateTime::Event::Recurrence;
     $yearly = yearly DateTime::Event::Recurrence(
                          weeks => -1 );
 
-                         # year_type => 'weekly',
-                         # days => [ -7 ] );
-
     @dt = $yearly->as_list( start => $dt1, end => $dt2 );
     $r = join(' ', map { $_->datetime } @dt);
     is( $r,
         '2003-12-22T00:00:00 2004-12-27T00:00:00 2005-12-26T00:00:00',
-        "yearly-weekly days -7" );
+        "yearly-weekly weeks -1" );
 
 
     $yearly = yearly DateTime::Event::Recurrence(

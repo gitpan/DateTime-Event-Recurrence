@@ -9,12 +9,16 @@ TODO list for Perl module DateTime::Event::Recurrence
     start date
     monthly, week + day (is it day-of-week or day-of-month?)
 
-* it should not generate an ICal string if it finds an invalid WKST or
-  if it specify nanoseconds
+* it should not generate an ICal string 
+  if it finds an invalid WKST or   # DONE
+  if it specify nanoseconds or
+  if there is a "start" value
 
 * move class DateTime::Set::ICal to a separate file
 
 OTHER
+
+* move calculations to a DateTime::Util::* module
 
 * add more tests with 'interval' > 1
 
@@ -22,11 +26,12 @@ OTHER
 
 * find out how it behaves with mixed timezones and DST changes
 
-* allow interleaved neg/positive values
+* allow interleaved neg/positive values 
+  See: t/11mixed_offset.t
+
     my $month = monthly DateTime::Event::Recurrence (
-        days => [ -1, 31, 15 ],
+        days => [ -20, 20 ],
         minutes => [ 30 ] );
-  DONE - check if it is tested
 
 * add more argument overflow tests:
   day in year, 

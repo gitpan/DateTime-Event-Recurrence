@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 
 use DateTime;
 use DateTime::Event::Recurrence;
@@ -23,6 +23,14 @@ use DateTime::Event::Recurrence;
     # DAILY
     my $daily = daily DateTime::Event::Recurrence;
     my @dt = $daily->as_list( start => $dt1, end => $dt2 );
+
+    is(
+        $daily->next( 
+                    DateTime->new( year => 2005 )
+                )->time_zone_long_name,
+        'floating', 
+        'the set is created with floating time zone' );
+
     my $r = join(' ', map { $_->datetime } @dt);
     is( $r, 
         '2003-04-29T00:00:00 2003-04-30T00:00:00 2003-05-01T00:00:00',
