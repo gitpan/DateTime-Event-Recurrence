@@ -1,3 +1,7 @@
+0.15    2005-01-19
+- array-ref parameter lists are not mutated. Patch by Daisuke Maki.
+- rewritten "sort positive values first" in _setup_parameters()
+
 0.14
 - requires DT::Set 0.17, because 0.16 had a bug that would break
   some tests.

@@ -102,7 +102,7 @@ use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION );
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -676,29 +676,34 @@ sub _setup_parameters {
 
             next unless exists $args{$unit};
 
-            $args{$unit} = [ $args{$unit} ] 
-                unless ref( $args{$unit} ) eq 'ARRAY';
-
+            if ( ref( $args{$unit} ) eq 'ARRAY' )
+            {
+                $args{$unit} = [ @{ $args{$unit} } ] 
+            }
+            else    
+            {
+                $args{$unit} = [ $args{$unit} ] 
+            }
+                
             # TODO: sort _after_ normalization
 
             if ( $unit eq 'days' )
             {
                 # map rfc2445 weekdays to numbers
                 @{$args{$unit}} = map {
-                        $_ =~ /[a-z]/ ?
-                        $_ = $weekdays{$_} :
-                        $_
+                        $_ =~ /[a-z]/ ? $weekdays{$_} : $_
                     } @{$args{$unit}};
             }
-            @{$args{$unit}} = sort { $a <=> $b } @{$args{$unit}};
-            # put positive values first
-            # warn "Arguments: $unit = @{$args{$unit}}";
-            my @tmp = grep { $_ >= 0 } @{$args{$unit}};
-            push @tmp, $_ for grep { $_ < 0 } @{$args{$unit}};
-            # print STDERR "$unit => @tmp\n";
-            @{$args{$unit}} = @tmp;
 
-            $ical_string .= uc( ';' . $ical_name{$unit} . '=' . join(",", @{$args{$unit}} ) ) unless $unit eq 'nanoseconds';
+            # sort positive values first
+            @{$args{$unit}} = sort {
+                    $a < 0 ? ( $b < 0 ? $a <=> $b : 1 ) : 
+                             ( $b < 0 ? -1 : $a <=> $b )
+                } @{$args{$unit}};
+            
+            $ical_string .= uc( ';' . $ical_name{$unit} . '=' . 
+                                join(",", @{$args{$unit}} ) ) 
+                unless $unit eq 'nanoseconds';
 
             $duration->[ $level ] = [];
 
@@ -755,14 +760,11 @@ sub _setup_parameters {
                     } 
 
                     # redo argument sort
-
-                    @{$args{$unit}} = sort { $a <=> $b } @{$args{$unit}};
-                    # put positive values first
-                    my @tmp = grep { $_ >= 0 } @{$args{$unit}};
-                    push @tmp, $_ for grep { $_ < 0 } @{$args{$unit}};
-                    # print STDERR "$unit => @tmp\n";
-                    @{$args{$unit}} = @tmp;
-
+                    # sort positive values first
+                    @{$args{$unit}} = sort {
+                            $a < 0 ? ( $b < 0 ? $a <=> $b : 1 ) :
+                                     ( $b < 0 ? -1 : $a <=> $b )
+                        } @{$args{$unit}};
                 }
                 else 
                 {   # year day
