@@ -1,37 +1,14 @@
 TODO list for Perl module DateTime::Event::Recurrence
 
-* new frequencies (in order to add support to missing DT::E::ICal recurrences):
+  - add more tests with 'interval' > 1
+  - add more 'previous' tests
 
-  DONE - yearly_week with other week-start-days (rfc2445 WKST style)
-  DONE - yearly_week starting in first weekday of year (rfc2445 1FR style)
-    week_start_day => 'mo'   -- yearly 
-    week_start_day => '1mo'  -- yearly and monthly 
-
-  - add tests with 'interval' > 1
-  - add 'previous' tests
-
-* start parameter
-  - is it just for synchronizing the interval?
-  - interval extends to before 'start' (current implementation)
-  - other options:
-    Span start
-    DTSTART meaning
-
-* find out how it behaves with mixed timezones
-
-* more tests for invalid month-day
+* find out how it behaves with mixed timezones and DST changes
 
 * allow interleaved neg/positive values
     my $month = monthly DateTime::Event::Recurrence (
         days => [ -1, 31, 15 ],
         minutes => [ 30 ] );
-
-
-* interval
-  - finish tests for offset (base-date)
-  - test it near DST changes
-  - should not use {local_rd_days} directly
-  - POD
 
 * add more argument overflow tests:
   day in year, 

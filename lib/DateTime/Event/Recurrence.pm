@@ -1,98 +1,107 @@
+use strict;
 
 package DateTime::Set::ICal;
-    # a "dt::set" with a symbolic string representation 
-    @ISA = qw( DateTime::Set );
-    sub set_ical { # include list, exclude list
-        my $self = shift;
-        # warn "set_ical @_";
-        $self->{as_ical} = [ @_ ];
-        $self; 
-    }
-    sub get_ical { 
-        my $self = shift;
-        return unless $self->{as_ical};
-        return @{ $self->{as_ical} };  
-    }
-    sub clone {
-        my $self = shift;
-        my $new = $self->SUPER::clone( @_ );
-        $new->set_ical( $self->get_ical );
-        $new;
-    }
-    sub union {
-        my $self = shift;
-        my $new = $self->SUPER::union( @_ );
 
-        # RFC2445 - op1, op2 must have no 'exclude'
-        my (%op1, %op2);
-        %op1 = ( $self->get_ical ) if ( UNIVERSAL::can( $self, 'get_ical' ) );
-        %op2 = ( $_[0]->get_ical ) if ( UNIVERSAL::can( $_[0], 'get_ical' ) );
-        return $new if ( ( exists $op1{exclude} ) ||
-                         ( exists $op2{exclude} ) );
+use vars qw(@ISA);
 
-        bless $new, 'DateTime::Set::ICal';
-        # warn " -- 1 isa @{[%op1]} -- 2 isa @{[%op2]} -- ";
-        my @ical;
-        @ical = exists $op1{include} ? 
-                @{$op1{include}} : 
-                $self;
-        if ( exists $op2{include} )
-        {
-            push @ical, @{$op2{include}};
-        }
-        else
-        {
-            push @ical, @_;  # whatever...
-        }
-        # warn "union: @ical";
-        $new->set_ical( include => [ @ical ] ); 
-        $new;
+# a "dt::set" with a symbolic string representation 
+@ISA = qw( DateTime::Set );
+
+sub set_ical { # include list, exclude list
+    my $self = shift;
+    # warn "set_ical @_";
+    $self->{as_ical} = [ @_ ];
+    $self; 
+}
+
+sub get_ical { 
+    my $self = shift;
+    return unless $self->{as_ical};
+    return @{ $self->{as_ical} };  
+}
+
+sub clone {
+    my $self = shift;
+    my $new = $self->SUPER::clone( @_ );
+    $new->set_ical( $self->get_ical );
+    $new;
+}
+
+sub union {
+    my $self = shift;
+    my $new = $self->SUPER::union( @_ );
+
+    # RFC2445 - op1, op2 must have no 'exclude'
+    my (%op1, %op2);
+    %op1 = ( $self->get_ical ) if ( UNIVERSAL::can( $self, 'get_ical' ) );
+    %op2 = ( $_[0]->get_ical ) if ( UNIVERSAL::can( $_[0], 'get_ical' ) );
+    return $new if ( ( exists $op1{exclude} ) ||
+		     ( exists $op2{exclude} ) );
+
+    bless $new, 'DateTime::Set::ICal';
+    # warn " -- 1 isa @{[%op1]} -- 2 isa @{[%op2]} -- ";
+    my @ical;
+    @ical = exists $op1{include} ? 
+	    @{$op1{include}} : 
+	    $self;
+
+    if ( exists $op2{include} )
+    {
+	push @ical, @{$op2{include}};
     }
-    sub complement {
-        my $self = shift;
-        my $new = $self->SUPER::complement( @_ );
-        return $new unless @_;
-
-        # RFC2445 - op2 must have no 'exclude'
-        my (%op1, %op2);
-        %op1 = ( $self->get_ical ) if ( UNIVERSAL::can( $self, 'get_ical' ) );
-        %op2 = ( $_[0]->get_ical ) if ( UNIVERSAL::can( $_[0], 'get_ical' ) );
-        return $new if ( exists $op2{exclude} );
-
-        bless $new, 'DateTime::Set::ICal';
-        # warn " -- 1 isa @{[%op1]} -- 2 isa @{[%op2]} -- ";
-        my ( @include, @exclude );
-        @include = exists $op1{include} ?
-                @{$op1{include}} :
-                $self;
-        @exclude = exists $op1{exclude} ?
-                @{$op1{exclude}} :
-                ();
-        if ( exists $op2{include} )
-        {
-            push @exclude, @{$op2{include}};
-        }
-        else
-        {
-            push @exclude, @_;  # whatever...
-        }
-        # warn "complement: include @include exclude @exclude";
-        $new->set_ical( include => [ @include ], exclude => [ @exclude ] ); 
-        $new;
+    else
+    {
+	push @ical, @_;  # whatever...
     }
+    # warn "union: @ical";
+    $new->set_ical( include => [ @ical ] ); 
+    $new;
+}
+
+sub complement {
+    my $self = shift;
+    my $new = $self->SUPER::complement( @_ );
+    return $new unless @_;
+
+    # RFC2445 - op2 must have no 'exclude'
+    my (%op1, %op2);
+    %op1 = ( $self->get_ical ) if ( UNIVERSAL::can( $self, 'get_ical' ) );
+    %op2 = ( $_[0]->get_ical ) if ( UNIVERSAL::can( $_[0], 'get_ical' ) );
+    return $new if ( exists $op2{exclude} );
+
+    bless $new, 'DateTime::Set::ICal';
+    # warn " -- 1 isa @{[%op1]} -- 2 isa @{[%op2]} -- ";
+    my ( @include, @exclude );
+    @include = exists $op1{include} ?
+	       @{$op1{include}} :
+	       $self;
+
+    @exclude = exists $op1{exclude} ?
+               @{$op1{exclude}} :
+               ();
+
+    if ( exists $op2{include} )
+    {
+	push @exclude, @{$op2{include}};
+    }
+    else
+    {
+	push @exclude, @_;  # whatever...
+    }
+    # warn "complement: include @include exclude @exclude";
+    $new->set_ical( include => [ @include ], exclude => [ @exclude ] ); 
+    $new;
+}
 
 package DateTime::Event::Recurrence;
 
 use strict;
-require Exporter;
-use Carp;
 use DateTime;
 use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
-@ISA     = qw( Exporter );
-$VERSION = 0.07;
+$VERSION = 0.08;
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -816,7 +825,7 @@ sub _setup_parameters {
 
     my $dur_unit_interval;
     my $neg_dur_unit_interval;
-    if ( $interval ) 
+    if ( $interval && ( $interval > 1 ) ) 
     {
         $dur_unit_interval = _new_duration( $unit => $interval );
         $neg_dur_unit_interval = _new_duration( $unit => -$interval );
@@ -873,7 +882,6 @@ sub _get_occurence_by_index {
     my $j;
     my $i;
     my $next = $base->clone;
-    # print STDERR "_get_occurence_by_index ".$base->datetime." $occurence/".$args->{total_durations}." \n";
     for $j ( 0 .. $#{$args->{duration}} ) 
     {
         $i = int( $occurence / $args->{total_level}[$j] );
@@ -889,13 +897,10 @@ sub _get_occurence_by_index {
              $next->month != $base->month )
         {
             # month overflow (month has no 31st day)
-            # print STDERR "month overflow at occurence $_[1] level $j arg $i\n";
             my $previous = $i * $args->{total_level}[$j] - 1;
-            # print STDERR "total_level ".( $args->{total_level}[$j] )." previous $previous \n";
             return ( undef, $previous );
         }
     }
-    # print STDERR "found: ".$next->datetime."\n";
     return ( $next, -1 );
 }
 
@@ -921,20 +926,6 @@ sub _get_previous {
             $end = $args->{total_durations} - 1;
 
             while (1) {
-                $tmp = int( $start + ( $end - $start ) / 2 );
-                ( $next, $err ) = _get_occurence_by_index ( $base, $tmp, $args );
-                unless (defined $next) {
-                    if ( $err >= 0 ) { $end = $err; next }
-                    next INTERVAL;
-                }
-
-                if ( $next < $self ) {
-                    $start = $tmp;
-                }
-                else {
-                    $end = $tmp - 1;
-                }
-
                 if ( $end - $start < 3 )
                 {
                     for ( $j = $end; $j >= $start; $j-- ) {
@@ -948,7 +939,20 @@ sub _get_previous {
                     }
                     next INTERVAL;
                 }
+
                 $tmp = int( $start + ( $end - $start ) / 2 );
+                ( $next, $err ) = _get_occurence_by_index ( $base, $tmp, $args );
+                unless (defined $next) {
+                    if ( $err >= 0 ) { $end = $err; next }
+                    next INTERVAL;
+                }
+
+                if ( $next < $self ) {
+                    $start = $tmp;
+                }
+                else {
+                    $end = $tmp - 1;
+                }
             }
         }
     }
@@ -982,6 +986,16 @@ sub _get_next {
             $end = $args->{total_durations} - 1;
                  
             while (1) {
+                if ( $end - $start < 3 )
+                {
+                    for $j ( $start .. $end ) {
+                        ( $next ) = _get_occurence_by_index ( $base, $j, $args ) ;
+                        next INTERVAL unless defined $next;
+                        return $next if $next > $self;
+                    }
+                    next INTERVAL;
+                }
+
                 $tmp = int( $start + ( $end - $start ) / 2 );
                 ( $next ) = _get_occurence_by_index ( $base, $tmp, $args ) ;
                 next INTERVAL unless defined $next;
@@ -991,16 +1005,6 @@ sub _get_next {
                 }
                 else {
                     $start = $tmp + 1;
-                }
-
-                if ( $end - $start < 3 ) 
-                {
-                    for $j ( $start .. $end ) {
-                        ( $next ) = _get_occurence_by_index ( $base, $j, $args ) ;
-                        next INTERVAL unless defined $next;
-                        return $next if $next > $self;
-                    }
-                    next INTERVAL;
                 }
             }
         }
@@ -1013,9 +1017,13 @@ sub _get_next {
     return $base;
 }
 
+1;
+
+__END__
+
 =head1 NAME
 
-DateTime::Event::Recurrence - Perl DateTime extension for computing basic recurrences.
+DateTime::Event::Recurrence - DateTime::Set extension for computing basic recurrences.
 
 =head1 SYNOPSIS
 
@@ -1027,7 +1035,7 @@ DateTime::Event::Recurrence - Perl DateTime extension for computing basic recurr
                          day    => 20,
                        );
 
- my $daily_set = daily DateTime::Event::Recurrence;
+ my $daily_set = DateTime::Event::Recurrence->daily;
 
  my $dt_next = $daily_set->next( $dt );
 
@@ -1046,8 +1054,8 @@ DateTime::Event::Recurrence - Perl DateTime extension for computing basic recurr
 =head1 DESCRIPTION
 
 This module provides convenience methods that let you easily create
-C<DateTime::Set> objects for common recurrences, such as "monthly" or
-"daily".
+C<DateTime::Set> objects for common recurrences, such as "once a month" or
+"every day".
 
 =head1 USAGE
 
@@ -1058,14 +1066,15 @@ C<DateTime::Set> objects for common recurrences, such as "monthly" or
 These methods all return a C<DateTime::Set> object representing the
 given recurrence.
 
-  my $daily_set = daily DateTime::Event::Recurrence;
+  my $daily_set = DateTime::Event::Recurrence->daily;
 
-If no parameters are given, then the set members occur at the
-I<beginning> of each recurrence.  For example, by default the
-C<monthly()> method returns a set where each member is the first day
-of the month.
-Without parameters, the C<weekly()> returns
-I<mondays>.
+If no parameters are given, then the set members each occur at the
+I<beginning> of each recurrence.
+
+For example, by default the C<monthly()> method returns a set where
+each member is the first day of the month.
+
+Without parameters, the C<weekly()> returns I<mondays>.
 
 However, you can pass in parameters to alter where these datetimes
 fall.  The parameters are the same as those given to the
@@ -1074,101 +1083,108 @@ duration.  For example, to create a set representing a daily
 recurrence at 10:30 each day, we can do:
 
   my $daily_at_10_30_set =
-      daily DateTime::Event::Recurrence( hours => 10, minutes => 30 );
+      DateTime::Event::Recurrence->daily( hours => 10, minutes => 30 );
 
 To represent every I<Tuesday> (second day of week):
 
   my $weekly_on_tuesday_set =
-      weekly DateTime::Event::Recurrence( days => 2 );
+      DateTime::Event::Recurrence->weekly( days => 2 );
 
 A negative duration counts backwards from the end of the period.  This
-is the same as is specified in RFC 2445.
+is done in the same manner as is specified in RFC 2445 (iCal).
 
 This is useful for creating recurrences such as the I<last day of
 month>:
 
   my $last_day_of_month_set =
-      monthly DateTime::Event::Recurrence( days => -1 );
+      DateTime::Event::Recurrence->monthly( days => -1 );
 
-When days are added to a month the result I<is> checked
-for month overflow (such as nonexisting day 31 or 30),
-and the invalid datetimes are skipped.
+When days are added to a month the result I<is> checked for month
+overflow (such as nonexisting day 31 or 30), and invalid datetimes are
+skipped.
 
 The behaviour when other duration overflows occur, such as when a
-duration is bigger than the period, is undefined and
-is version dependent. 
+duration is bigger than the period, is undefined and is version
+dependent.
+
 Invalid parameter values are usually skipped.
 
-Note that the 'hours' duration is affected by DST changes and might
+Note that the "hours" duration is affected by DST changes and might
 return unexpected results.  In particular, it would be possible to
-specify a recurrence that creates nonexistent datetimes.
+specify a recurrence that creates nonexistent datetimes.  Because
+C<DateTime.pm> throws an exception if asked to create a non-existent
+datetime, please be careful when specifying a duration with "hours".
 This behaviour might change in future versions.
-Some possible alternatives are to use
-floating times, or to use negative hours since 
-DST changes usually occur in the beginning of the day.
 
-The value C<60> for seconds (the leap second) is ignored. 
-If you i<really> want the leap second, then specify 
-the second as C<-1>.
+As an alternative, you might want to use floating times, or use
+negative hours since DST changes almost always occur at the beginning
+of the day.
+
+The value C<60> for seconds (the leap second) is ignored.  If you
+I<really> want the leap second, then specify the second as C<-1>.
 
 You can also provide multiple sets of duration arguments, such as
 this:
 
-    my $set = daily DateTime::Event::Recurrence (
+    my $set = DateTime::Event::Recurrence->daily(
         hours =>   [ 10, 14,  -1 ],
-        minutes => [ 30, 15, -15 ], );
+        minutes => [ 15, 30, -15 ], );
 
-specifies a recurrence occuring everyday at these 9 different times:
+specifies a recurrence occuring every day at these 9 different times:
 
-  10:15,  10:30,  10:45,   # +10h ( +15min / +30min / last 15min )
-  14:15,  14:30,  14:45,   # +14h ( +15min / +30min / last 15min )
-  23:15,  23:30,  23:45,   # last 1h ( +15min / +30min / last 15min )
+  10:15,  10:30,  10:45,   # +10h         ( +15min / +30min / last 15min (-15) )
+  14:15,  14:30,  14:45,   # +14h         ( +15min / +30min / last 15min (-15) )
+  23:15,  23:30,  23:45,   # last 1h (-1) ( +15min / +30min / last 15min (-15) )
 
-To create a set of recurrences every thirty seconds, we could do this:
+To create a set of recurrences occuring every thirty seconds, we could do this:
 
     my $every_30_seconds_set =
-        minutely DateTime::Event::Recurrence ( seconds => [ 0, 30 ] );
+        DateTime::Event::Recurrence->minutely( seconds => [ 0, 30 ] );
 
-=head2 Interval
+=back
 
-The C<interval> parameter represents how
-often the recurrence rule repeats:
+=head2 "interval" and "start" parameters
+
+The C<interval> parameter represents how often the recurrence rule
+repeats. The optional C<start> parameter specify where to start counting:
 
     my $dt = DateTime->new( year => 2003, month => 6, day => 15 );
 
-    my $set = daily DateTime::Event::Recurrence (
+    my $set = DateTime::Event::Recurrence->daily(
         interval => 11,
         hours =>    10,
         minutes =>  30,
         start =>    $dt );
 
-specify a recurrence that happens at 10:30 at C<$dt> day, 
-and then at each 11 days, I<before and after> C<$dt>:
+specifies a recurrence that happens at 10:30 on the day specified by
+C<start => $dt>, and then at every 11 days I<before and after> C<$dt>.  So we
+get a set like this:
 
-    ... 2003-06-04T10:30:00, 
-        2003-06-15T10:30:00, 
-        2003-06-26T10:30:00, ... 
+    ...
+    2003-06-04T10:30:00,
+    2003-06-15T10:30:00,
+    2003-06-26T10:30:00,
+    ...
 
-=head2 Week start day
+=head2 "week start day" parameter
 
-The C<week_start_day> parameter is intended for
-internal use by the C<DateTime::Event::ICal> module,
-for generating RFC2445 recurrences.
+The C<week_start_day> parameter is intended for internal use by the
+C<DateTime::Event::ICal> module, for generating RFC2445 recurrences.
 
-The C<week_start_day> represents how
-the 'first week' of a period is calculated:
+The C<week_start_day> represents how the 'first week' of a period is
+calculated:
 
-'mo' - this is the default. The first week is
-one that starts in monday, and has I<the most days> in
-this period. 
+"mo" - this is the default.  The first week is one that starts in
+monday, and has I<the most days> in this period.
 
-'tu', 'we', 'th', 'fr', 'sa', 'su' - The first week is
-one that starts in this week-day, and has I<the most days> in
-this period. Works for C<weekly> and C<yearly> recurrences.
+"tu", "we", "th", "fr", "sa", "su" - The first week is one that starts
+in this week-day, and has I<the most days> in this period.  Works for
+C<weekly> and C<yearly> recurrences.
 
-'1tu', '1we', '1th', '1fr', '1sa', '1su' - The first week is
-one that starts in this week-day, and has I<all days> in
-this period. Works for C<weekly>, C<monthly> and C<yearly> recurrences.
+"1tu", "1we", "1th", "1fr", "1sa", "1su" - The first week is one that
+starts in this week-day, and has I<all days> in this period.  Works for
+C<weekly>, C<monthly> and C<yearly> recurrences.
+
 
 =head1 AUTHOR
 
@@ -1177,17 +1193,17 @@ fglock@pucrs.br
 
 =head1 CREDITS
 
-The API was developmed with help from the people
-in the datetime@perl.org list. 
+The API was developed with help from the people in the
+datetime@perl.org list.
 
 Special thanks to Dave Rolsky, 
 Ron Hill and Matt Sisk for being around with ideas.
 
-If you can understand what this module does by reading
-the docs, you should thank Dave Rolsky.
+If you can understand what this module does by reading the docs, you
+should thank Dave Rolsky.  If you can't understand it, yell at him.
 He also helped removing weird idioms from the code.
 
-Jerrad Pierce came with the idea to move 'interval' from
+Jerrad Pierce came with the idea to move "interval" from
 DateTime::Event::ICal to here.
 
 =head1 COPYRIGHT
@@ -1216,5 +1232,4 @@ DateTime::Event::ICal - if you need more complex recurrences.
 DateTime::SpanSet - sets of intervals, including recurring sets of intervals.
 
 =cut
-1;
 
