@@ -21,3 +21,4 @@ t/10weekly_more.t
 # t/10interval.t
 # t/11interval_start.t
 
+META.yml                                Module meta-data (added by MakeMaker)

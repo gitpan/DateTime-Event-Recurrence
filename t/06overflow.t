@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 26;
+use Test::More tests => 27;
 
 use DateTime;
 use DateTime::Event::Recurrence;
@@ -139,3 +139,23 @@ use DateTime::Event::Recurrence;
     $dt = $month->next( $dt1 );
     is ( $dt, undef, 'next' );
 }
+
+{
+# february-30
+
+    my $dt1 = new DateTime( year => 2003, month => 1, day => 30,
+                           hour => 12, minute => 10, second => 45,
+                           nanosecond => 123456,
+                           time_zone => 'UTC' );
+
+    my $month = monthly DateTime::Event::Recurrence (
+        months => [ 2 ],
+    );
+
+    my $dt;
+
+    $dt = $month->next( $dt1 );
+    is ( $dt->datetime, '2003-02-01T00:00:00', 'next' );
+
+}
+

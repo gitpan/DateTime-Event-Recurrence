@@ -1,3 +1,7 @@
+0.06
+- defines DateTime::Set::ICal class, in order to provide 
+  ICal strings to represent recurrences (set/get_ical)
+
 0.05   2003-05-23
 - memoizes durations; makes less calls to DT::Duration->new
 - 'weekly' can use 'week_start_day'

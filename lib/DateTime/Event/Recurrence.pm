@@ -1,3 +1,86 @@
+
+package DateTime::Set::ICal;
+    # a "dt::set" with a symbolic string representation 
+    @ISA = qw( DateTime::Set );
+    sub set_ical { # include list, exclude list
+        my $self = shift;
+        # warn "set_ical @_";
+        $self->{as_ical} = [ @_ ];
+        $self; 
+    }
+    sub get_ical { 
+        my $self = shift;
+        return unless $self->{as_ical};
+        return @{ $self->{as_ical} };  
+    }
+    sub clone {
+        my $self = shift;
+        my $new = $self->SUPER::clone( @_ );
+        $new->set_ical( $self->get_ical );
+        $new;
+    }
+    sub union {
+        my $self = shift;
+        my $new = $self->SUPER::union( @_ );
+
+        # RFC2445 - op1, op2 must have no 'exclude'
+        my (%op1, %op2);
+        %op1 = ( $self->get_ical ) if ( UNIVERSAL::can( $self, 'get_ical' ) );
+        %op2 = ( $_[0]->get_ical ) if ( UNIVERSAL::can( $_[0], 'get_ical' ) );
+        return $new if ( ( exists $op1{exclude} ) ||
+                         ( exists $op2{exclude} ) );
+
+        bless $new, 'DateTime::Set::ICal';
+        # warn " -- 1 isa @{[%op1]} -- 2 isa @{[%op2]} -- ";
+        my @ical;
+        @ical = exists $op1{include} ? 
+                @{$op1{include}} : 
+                $self;
+        if ( exists $op2{include} )
+        {
+            push @ical, @{$op2{include}};
+        }
+        else
+        {
+            push @ical, @_;  # whatever...
+        }
+        # warn "union: @ical";
+        $new->set_ical( include => [ @ical ] ); 
+        $new;
+    }
+    sub complement {
+        my $self = shift;
+        my $new = $self->SUPER::complement( @_ );
+        return $new unless @_;
+
+        # RFC2445 - op2 must have no 'exclude'
+        my (%op1, %op2);
+        %op1 = ( $self->get_ical ) if ( UNIVERSAL::can( $self, 'get_ical' ) );
+        %op2 = ( $_[0]->get_ical ) if ( UNIVERSAL::can( $_[0], 'get_ical' ) );
+        return $new if ( exists $op2{exclude} );
+
+        bless $new, 'DateTime::Set::ICal';
+        # warn " -- 1 isa @{[%op1]} -- 2 isa @{[%op2]} -- ";
+        my ( @include, @exclude );
+        @include = exists $op1{include} ?
+                @{$op1{include}} :
+                $self;
+        @exclude = exists $op1{exclude} ?
+                @{$op1{exclude}} :
+                ();
+        if ( exists $op2{include} )
+        {
+            push @exclude, @{$op2{include}};
+        }
+        else
+        {
+            push @exclude, @_;  # whatever...
+        }
+        # warn "complement: include @include exclude @exclude";
+        $new->set_ical( include => [ @include ], exclude => [ @exclude ] ); 
+        $new;
+    }
+
 package DateTime::Event::Recurrence;
 
 use strict;
@@ -9,7 +92,7 @@ use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
 @ISA     = qw( Exporter );
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -349,7 +432,7 @@ BEGIN {
                      _setup_parameters( base => $name, @_ );
 
                   return DateTime::Set->empty_set if $_args == -1;
-                  return DateTime::Set->from_recurrence(
+                  my $set = DateTime::Set->from_recurrence(
                           next => sub { 
                               _get_next( $_[0], $_args ); 
                           },
@@ -357,6 +440,9 @@ BEGIN {
                               _get_previous( $_[0], $_args ); 
                           },
                       );
+                  bless $set, 'DateTime::Set::ICal';
+                  $set->set_ical();   # TODO
+                  return $set;
                 };
     }
 } # BEGIN
@@ -1019,14 +1105,14 @@ You can also provide multiple sets of duration arguments, such as
 this:
 
     my $set = daily DateTime::Event::Recurrence (
-        hours => [ -1, 10, 14 ],
-        minutes => [ -15, 30, 15 ] );
+        hours =>   [ 10, 14,  -1 ],
+        minutes => [ 30, 15, -15 ], );
 
 specifies a recurrence occuring everyday at these 9 different times:
 
-  09:45,  10:15,  10:30,    # 10h ( -15 / +15 / +30 minutes )
-  13:45,  14:15,  14:30,    # 14h ( -15 / +15 / +30 minutes )
-  22:45,  23:15,  23:30,    # -1h ( -15 / +15 / +30 minutes )
+  10:15,  10:30,  10:45,   # +10h ( +15min / +30min / last 15min )
+  14:15,  14:30,  14:45,   # +14h ( +15min / +30min / last 15min )
+  23:15,  23:30,  23:45,   # last 1h ( +15min / +30min / last 15min )
 
 To create a set of recurrences every thirty seconds, we could do this:
 
