@@ -3,13 +3,14 @@ use strict;
 package DateTime::Set::ICal;
 
 use vars qw(@ISA);
+# use Carp;
 
 # a "dt::set" with a symbolic string representation 
 @ISA = qw( DateTime::Set );
 
 sub set_ical { # include list, exclude list
     my $self = shift;
-    # warn "set_ical @_";
+    # carp "set_ical $_[0] => @{$_[1]}" if @_;
     $self->{as_ical} = [ @_ ];
     $self; 
 }
@@ -101,7 +102,7 @@ use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION @ISA );
-$VERSION = 0.08;
+$VERSION = 0.09;
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -113,6 +114,8 @@ use vars qw(
     %weekdays %weekdays_1 
     $dur_month $dur_neg_month 
     %memoized_duration
+    %ical_name
+    %ical_days
 );
 
 BEGIN {
@@ -120,6 +123,12 @@ BEGIN {
     %weekdays_1 = qw( 1mo 1  1tu 2  1we 3  1th 4  1fr 5  1sa 6  1su 7 );
     $dur_month =  new DateTime::Duration( months => 1 );
     $dur_neg_month =  new DateTime::Duration( months => -1 );
+    %ical_name =  qw( 
+        months BYMONTH   weeks BYWEEK 
+        days BYMONTHDAY  hours BYHOUR
+        minutes BYMINUTE seconds BYSECOND );
+    %ical_days =  qw( 1 MO 2 TU 3 WE 4 TH 5 FR 6 SA 7 SU 
+                      -7 MO -6 TU -5 WE -4 TH -3 FR -2 SA -1 SU );
 }
 
 # memoization reduces 'duration' creation from >10000 to about 30 per run,
@@ -450,7 +459,11 @@ BEGIN {
                           },
                       );
                   bless $set, 'DateTime::Set::ICal';
-                  $set->set_ical();   # TODO
+
+                  my $ical_string = uc( "RRULE:FREQ=$namely" );
+                  $ical_string .= $_args->{ical_string} if defined $_args->{ical_string};
+                  $set->set_ical( include => [ $ical_string ] ); 
+                  # warn $ical_string;
                   return $set;
                 };
     }
@@ -472,9 +485,24 @@ sub weekly {
         _setup_parameters( base => 'weeks', %args );
     return DateTime::Set->empty_set if $_args == -1;
 
+    my $ical_string = "RRULE:FREQ=WEEKLY";
+    if ( defined $_args->{ical_string} ) 
+    {
+        my ($by) = $_args->{ical_string} =~ /(BYMONTHDAY=.*?)(;|$)/;
+        if ( defined $by ) 
+        {
+            my ( undef, @days ) = split( /[=,]/, $by );
+            # map numbers to rfc2445 weekdays 
+            my $by2 = join( ',', map { $ical_days{ $_ } } @days );
+            $_args->{ical_string} =~ s/$by/BYDAY=$by2/;
+        }
+        $ical_string .= $_args->{ical_string};
+    }
+    # warn $ical_string;
+
     $_args->{week_start_day} = $week_start_day;
 
-    return DateTime::Set->from_recurrence(
+    my $set = DateTime::Set::ICal->from_recurrence(
         next => sub {
             _get_next( $_[0], $_args );
         },
@@ -482,6 +510,8 @@ sub weekly {
             _get_previous( $_[0], $_args );
         }
     );
+    $set->set_ical( include => [ $ical_string ] );
+    return $set;
 }
 
 
@@ -522,7 +552,7 @@ sub monthly {
         }
     }
 
-    return DateTime::Set->from_recurrence(
+    my $set = DateTime::Set::ICal->from_recurrence(
         next => sub {
             _get_next( $_[0], $_args );
         },
@@ -530,6 +560,11 @@ sub monthly {
             _get_previous( $_[0], $_args );
         }
     );
+    my $ical_string = "RRULE:FREQ=MONTHLY";
+    $ical_string .= $_args->{ical_string} if defined $_args->{ical_string};
+    $set->set_ical( include => [ $ical_string ] );
+    # warn $ical_string;
+    return $set;
 }
 
 
@@ -569,7 +604,7 @@ sub yearly {
         }
     }
 
-    return DateTime::Set->from_recurrence(
+    my $set = DateTime::Set::ICal->from_recurrence(
         next => sub {
             _get_next( $_[0], $_args );
         },
@@ -577,6 +612,11 @@ sub yearly {
             _get_previous( $_[0], $_args );
         }
     );
+    my $ical_string = "RRULE:FREQ=YEARLY";
+    $ical_string .= $_args->{ical_string} if defined $_args->{ical_string};
+    $set->set_ical( include => [ $ical_string ] );
+    # warn $ical_string;
+    return $set;
 }
 
 
@@ -595,6 +635,7 @@ sub _setup_parameters {
     my $start;
     my $offset;
     my $week_start_day;
+    my $ical_string;
 
     # TODO: @duration instead of $duration
     my $duration;  
@@ -620,6 +661,13 @@ sub _setup_parameters {
         $start = $args{span}->start if exists $args{span} && ! defined $start;
         if ( defined $start ) {
             undef $start if $start == INFINITY || $start == NEG_INFINITY;
+        }
+
+        $ical_string = ";INTERVAL=$interval" if $interval && $interval > 1;
+        if ( $week_start_day && $week_start_day ne 'mo' )
+        {
+            $ical_string .= ";WKST=". uc($week_start_day) 
+                if exists $weekdays{$week_start_day};
         }
 
         for my $unit ( 
@@ -649,6 +697,8 @@ sub _setup_parameters {
             push @tmp, $_ for grep { $_ < 0 } @{$args{$unit}};
             # print STDERR "$unit => @tmp\n";
             @{$args{$unit}} = @tmp;
+
+            $ical_string .= uc( ';' . $ical_name{$unit} . '=' . join(",", @{$args{$unit}} ) ) unless $unit eq 'nanoseconds';
 
             $duration->[ $level ] = [];
 
@@ -850,6 +900,7 @@ sub _setup_parameters {
             offset => $offset,
             dur_unit_interval => $dur_unit_interval,
             neg_dur_unit_interval => $neg_dur_unit_interval,
+            ical_string => $ical_string,
         };
 
     }
@@ -871,6 +922,7 @@ sub _setup_parameters {
         interval => 1,
         dur_unit_interval => $dur_unit,
         neg_dur_unit_interval => $neg_dur_unit,
+        ical_string => $ical_string,
     };
 }
 

@@ -1,7 +1,24 @@
 TODO list for Perl module DateTime::Event::Recurrence
 
-  - add more tests with 'interval' > 1
-  - add more 'previous' tests
+"ICAL FORMAT"
+
+* tests with ICal format, using
+  DateTime::Format::ICal->format_recurrence():
+    wkst
+    interval
+    start date
+    monthly, week + day (is it day-of-week or day-of-month?)
+
+* it should not generate an ICal string if it finds an invalid WKST or
+  if it specify nanoseconds
+
+* move class DateTime::Set::ICal to a separate file
+
+OTHER
+
+* add more tests with 'interval' > 1
+
+* add more 'previous' tests
 
 * find out how it behaves with mixed timezones and DST changes
 
@@ -9,6 +26,7 @@ TODO list for Perl module DateTime::Event::Recurrence
     my $month = monthly DateTime::Event::Recurrence (
         days => [ -1, 31, 15 ],
         minutes => [ 30 ] );
+  DONE - check if it is tested
 
 * add more argument overflow tests:
   day in year, 

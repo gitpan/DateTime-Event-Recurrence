@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 11;
+use Test::More tests => 14;
 
 use DateTime;
 use DateTime::SpanSet;
@@ -10,6 +10,30 @@ use DateTime::Event::Recurrence;
 
 sub str { ref($_[0]) ? $_[0]->datetime : $_[0] }
 sub span_str { str($_[0]->min) . '..' . str($_[0]->max) }
+
+{
+    my $dt1 = new DateTime( year => 2003, month => 4, day => 28,
+                           hour => 12, minute => 10, second => 45,
+                           nanosecond => 123456,
+                           time_zone => 'UTC' );
+
+    my $r1 = yearly DateTime::Event::Recurrence (
+        nanoseconds => [ 500000, 700000 ],
+    );
+
+    my $dt;
+
+    $dt = $r1->next( $dt1 );
+    is ( $dt->strftime( "%Y-%m-%dT%H:%M:%S.%N" ),
+         '2004-01-01T00:00:00.000500000', 'next nanosecond' );
+    $dt = $r1->next( $dt );
+    is ( $dt->strftime( "%Y-%m-%dT%H:%M:%S.%N" ),
+         '2004-01-01T00:00:00.000700000', 'next nanosecond' );
+    $dt = $r1->next( $dt );
+    is ( $dt->strftime( "%Y-%m-%dT%H:%M:%S.%N" ),
+         '2005-01-01T00:00:00.000500000', 'next nanosecond' );
+
+}
 
 {
     my $dt1 = new DateTime( year => 2003, month => 4, day => 28,
