@@ -12,8 +12,8 @@ use DateTime::Event::Recurrence;
                            time_zone => 'UTC' );
 
     my $daily_full = daily DateTime::Event::Recurrence ( 
-        hours => [ 10, 14, -1 ],
-        minutes => [ 30, -15, 15 ] );
+        hours => [ 10, 14, -1 ],            # 10,14,23
+        minutes => [ 30, -15, 15 ] );       # 15,30,45
 
     my $dt;
 
@@ -26,15 +26,16 @@ use DateTime::Event::Recurrence;
     my $daily_join = $daily_full->union( $dt_more );
 
     $dt = $daily_join->next( $dt1 );
-    is ( $dt->datetime, '2003-04-28T13:45:00', 'next union' );
-    $dt = $daily_join->next( $dt );
     #-- this datetime was added...
     is ( $dt->datetime, '2003-04-28T14:00:00', 'next union' );
     $dt = $daily_join->next( $dt );
     #--
     is ( $dt->datetime, '2003-04-28T14:15:00', 'next union' );
     $dt = $daily_join->next( $dt );
+    
     is ( $dt->datetime, '2003-04-28T14:30:00', 'next union' );
+    $dt = $daily_join->next( $dt );
+    is ( $dt->datetime, '2003-04-28T14:45:00', 'next union' );
 
     # INTERSECTION
 
@@ -63,15 +64,15 @@ use DateTime::Event::Recurrence;
     my $daily_except = $daily_full->complement( $dt_out );
 
     $dt = $daily_except->next( $dt1 );
-    is ( $dt->datetime, '2003-04-28T13:45:00', 'next complement' );
+    is ( $dt->datetime, '2003-04-28T14:30:00', 'next complement' );
     $dt = $daily_except->next( $dt );
     #-- this datetime was removed...
     # is ( $dt->datetime, '2003-04-28T14:15:00', 'next complement' );
     # $dt = $daily_except->next( $dt );
     #--
-    is ( $dt->datetime, '2003-04-28T14:30:00', 'next complement' );
+    is ( $dt->datetime, '2003-04-28T14:45:00', 'next complement' );
     $dt = $daily_except->next( $dt );
-    is ( $dt->datetime, '2003-04-28T22:45:00', 'next complement' );
+    is ( $dt->datetime, '2003-04-28T23:15:00', 'next complement' );
 
 }
 

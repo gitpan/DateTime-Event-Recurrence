@@ -1,3 +1,18 @@
+
+- iterates using binary tree
+- parameter checking
+- fixed behaviour of negative numbers (rfc2445)
+   14h and -15min was: 13:45 = subtract 15 minutes
+                  now: 14:45 = last 15 minutes of hour
+- removed parameter 'year_type'
+- 'duration' argument is obsolete
+- added 'interval' parameter
+- moved local parameters to a hash
+- moved unit-specific subs to hash
+- added year_type => 'weekly' to yearly (internal)
+  default is year_type => 'monthly'.
+
+0.02
 - tests month-day overflow for positive day offsets, if 'month'
   argument is specified. Skips a datetime if it is invalid.
 - setup structure to allow other overflow tests.
