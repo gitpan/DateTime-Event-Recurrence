@@ -1,3 +1,7 @@
+0.14
+- requires DT::Set 0.17, because 0.16 had a bug that would break
+  some tests.
+
 0.13    2004-06-17
 - a weekly recurrence with an interval behaves strangely,
   if the given dtstart is a sunday. Reported by Bridget Almas.

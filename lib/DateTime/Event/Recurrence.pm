@@ -102,7 +102,7 @@ use DateTime::Set;
 use DateTime::Span;
 use Params::Validate qw(:all);
 use vars qw( $VERSION );
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 use constant INFINITY     =>       100 ** 100 ** 100 ;
 use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
@@ -1084,7 +1084,7 @@ __END__
 
 =head1 NAME
 
-DateTime::Event::Recurrence - DateTime::Set extension for computing basic recurrences.
+DateTime::Event::Recurrence - DateTime::Set extension for create basic recurrence sets
 
 =head1 SYNOPSIS
 
@@ -1115,8 +1115,10 @@ DateTime::Event::Recurrence - DateTime::Set extension for computing basic recurr
 =head1 DESCRIPTION
 
 This module provides convenience methods that let you easily create
-C<DateTime::Set> objects for common recurrences, such as "once a month" or
-"every day".
+C<DateTime::Set> objects for various recurrences, such as "once a
+month" or "every day".  You can also create more complicated
+recurrences, such as "every Monday, Wednesday and Thursday at 10:00 AM
+and 2:00 PM".
 
 =head1 USAGE
 
@@ -1124,16 +1126,16 @@ C<DateTime::Set> objects for common recurrences, such as "once a month" or
 
 =item * yearly monthly weekly daily hourly minutely secondly
 
-These methods all return a C<DateTime::Set> object representing the
-given recurrence.
+These methods all return a new C<DateTime::Set> object representing
+the given recurrence.
 
   my $daily_set = DateTime::Event::Recurrence->daily;
 
 If no parameters are given, then the set members each occur at the
-I<beginning> of each recurrence.
+I<beginning> of the specified recurrence.
 
-For example, by default the C<monthly()> method returns a set where
-each member is the first day of the month.
+For example, by default, the C<monthly()> method returns a set
+containing the first day of each month.
 
 Without parameters, the C<weekly()> method returns a set containing
 I<Mondays>.
@@ -1142,12 +1144,12 @@ However, you can pass in parameters to alter where these datetimes
 fall.  The parameters are the same as those given to the
 C<DateTime::Duration> constructor for specifying the length of a
 duration.  For example, to create a set representing a daily
-recurrence at 10:30 each day, we can do:
+recurrence at 10:30 each day, we write this:
 
   my $daily_at_10_30_set =
       DateTime::Event::Recurrence->daily( hours => 10, minutes => 30 );
 
-To represent every I<Tuesday> (second day of week):
+To represent every I<Tuesday> (second day of the week):
 
   my $weekly_on_tuesday_set =
       DateTime::Event::Recurrence->weekly( days => 2 );
@@ -1156,7 +1158,7 @@ A negative duration counts backwards from the end of the period.  This
 is done in the same manner as is specified in RFC 2445 (iCal).
 
 This is useful for creating recurrences such as the I<last day of
-month>:
+each month>:
 
   my $last_day_of_month_set =
       DateTime::Event::Recurrence->monthly( days => -1 );
@@ -1170,16 +1172,6 @@ don't do that.  An example of this would be creating a set via the
 C<daily()> method and specifying C<< hours => 25 >>.
 
 Invalid parameter values are usually skipped.
-
-Note that the "hours" duration is affected by DST changes and might
-return unexpected results.  In particular, it would be possible to
-specify a recurrence that creates nonexistent datetimes.  Because
-C<DateTime.pm> throws an exception if asked to create a non-existent
-datetime, please be careful when specifying a duration with "hours".
-
-The best way to ensure that this is not a problem is to use the "UTC"
-or "floating" time zones when providing C<DateTime> objects to the
-set's C<next()> or C<previous()> methods.
 
 The value C<60> for seconds (the leap second) is ignored.  If you
 I<really> want the leap second, then specify the second as C<-1>.
@@ -1206,7 +1198,7 @@ To create a set of recurrences occuring every thirty seconds, we could do this:
 
 =back
 
-=head2 "interval" and "start" parameters
+=head2 The "interval" and "start" Parameters
 
 The "interval" parameter represents how often the recurrence rule
 repeats. The optional "start" parameter specifies where to start
@@ -1235,7 +1227,10 @@ In this case, the method is used to specify the unit, so C<daily()>
 means that our unit is a day, and C<< interval => 11 >> specifies the
 quantity of our unit.
 
-=head2 "week start day" parameter
+Even if your "start" parameter has a time zone, the returned set will
+still be in the floating time zone.
+
+=head2 The "week start day" Parameter
 
 The C<week_start_day> parameter is intended for internal use by the
 C<DateTime::Event::ICal> module, for generating RFC2445 recurrences.
@@ -1253,6 +1248,29 @@ C<weekly> and C<yearly> recurrences.
 "1tu", "1we", "1th", "1fr", "1sa", "1su" - The first week is one that
 starts in this week-day, and has I<all days> in this period.  This
 works for C<weekly()>, C<monthly()> and C<yearly()> recurrences.
+
+=head2 Time Zones
+
+If you want to specify a time zone for a recurrence, you can do this
+by calling C<set_time_zone()> on the returned set:
+
+  my $daily = DateTime::Event::Recurrence->daily;
+  $daily->set_time_zone( 'Europe/Berlin' );
+
+You can also pass a C<DateTime.pm> object with a time zone to
+the set's C<next()> and C<previous()> methods:
+
+  my $dt = DateTime->today( time_zone => 'Europe/Berlin' );
+  my $next = $daily->next($dt);
+
+A recurrence can be affected DST changes, so it would be possible to
+specify a recurrence that creates nonexistent datetimes.  Because
+C<DateTime.pm> throws an exception if asked to create a non-existent
+datetime, please be careful when setting a time zone for your
+recurrence.
+
+It might be preferable to always use "UTC" for your sets, and then
+convert the returned object to the desired time zone.
 
 =head1 AUTHOR
 
