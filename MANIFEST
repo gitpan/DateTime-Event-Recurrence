@@ -13,4 +13,5 @@ t/02next.t
 t/03offset.t
 t/04neg_offset.t
 t/05set.t
-
+t/06overflow.t
+t/07set-2.t

@@ -1,10 +1,14 @@
 TODO list for Perl module DateTime::Event::Recurrence
 
+* document argument overflow tests,
+  add more argument overflow tests
+
 * count hours backwards, in order to avoid DST changes
   which usually occur in the first hours of the day
 
 * new units:
 
+  yearly_week_0  ?
   weekly_year  => first day of first week of year, such that
                   we can get week #34 by adding 33 weeks!
 
