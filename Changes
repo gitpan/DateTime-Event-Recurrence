@@ -1,3 +1,10 @@
+0.16  2005-05-12
+- fix 'BYWEEK' -> 'BYWEEKNO'
+- Depends on DateTime 0.27 because it uses local_rd_values(). 
+  This fixes a local/UTC problem reported by Dave Rolsky.
+- uses no DateTime.pm internals
+- removed (undocumented) arguments 'after' and 'start'
+
 0.15_02   2005-01-27
 - allows interleaved neg/positive values; allows repeated indexes.
   Supports weird argument lists such as [ -200, -10, -10, 200, 20 ].

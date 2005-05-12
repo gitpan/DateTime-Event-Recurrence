@@ -7,7 +7,7 @@ use ExtUtils::MakeMaker;
                    AUTHOR       => 'Flavio S. Glock <fglock@pucrs.br>',
                    ABSTRACT     => 'DateTime base recurrences',
 
-                   PREREQ_PM    => { 'DateTime' => 0,
+                   PREREQ_PM    => { 'DateTime' => 0.27,  # local_rd_values
                                      'DateTime::Set' => '0.17',
                                    },
                  );

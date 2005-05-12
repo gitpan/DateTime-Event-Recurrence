@@ -18,6 +18,8 @@ TODO list for Perl module DateTime::Event::Recurrence
 
 OTHER
 
+* add tests for error-messages
+
 * move calculations to a DateTime::Util::* module
 
 * add more tests with 'interval' > 1
@@ -25,20 +27,4 @@ OTHER
 * add more 'previous' tests
 
 * find out how it behaves with mixed timezones and DST changes
-
-* allow interleaved neg/positive values 
-  See: t/11mixed_offset.t
-
-    my $month = monthly DateTime::Event::Recurrence (
-        days => [ -20, 20 ],
-        minutes => [ 30 ] );
-
-* remove repeated indexes
-        days => [ 1 1 1 4 ],
-
-* add more argument overflow tests:
-  day in year, 
-  week in year, 
-  negative values, 
-  ... 
 
